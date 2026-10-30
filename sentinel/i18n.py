@@ -1,6 +1,8 @@
 """Arabic/English language strings for the server-wide interface."""
 TEXT={
 "en":{
+"broadcast":"Broadcast",
+"broadcast_text":"**📬 Opt-in DM announcements**\n`/broadcast panel` — publish subscribe/unsubscribe buttons\n`/broadcast subscribe` / `unsubscribe` — member choice\n`/broadcast count` — opted-in total\n`/broadcast send` — preview and confirm DM delivery\n`/broadcast status` — latest delivery report\n`/announce` — post to a server channel\n\nNo unsolicited member DMs.",
 "bc_report_title":"📊  Broadcast report #{id}",
 "bc_report_status":"Campaign status: **{status}**",
 "bc_recipients":"Subscribed targets",
@@ -62,6 +64,8 @@ TEXT={
 "missing_user":"You lack the required Discord permissions.","missing_bot":"The bot lacks required permissions.","command_failed":"Action failed; review permissions or the bot logs.",
 },
 "ar":{
+"broadcast":"الإعلانات",
+"broadcast_text":"**📬 إعلانات الخاص للمشتركين**\n`/broadcast panel` — لوحة اشتراك وإلغاء اشتراك\n`/broadcast subscribe` / `unsubscribe` — اختيار العضو\n`/broadcast count` — عدد المشتركين\n`/broadcast send` — معاينة الرسالة ثم تأكيد الإرسال\n`/broadcast status` — آخر تقرير للإرسال\n`/announce` — إعلان في قناة داخل السيرفر\n\nالبوت مش بيرسل رسائل خاصة لغير المشتركين.",
 "bc_report_title":"📊  تقرير الإرسال رقم {id}",
 "bc_report_status":"حالة العملية: **{status}**",
 "bc_recipients":"المشتركون المستهدفون",
