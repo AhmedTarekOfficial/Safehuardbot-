@@ -23,6 +23,10 @@ def database_path() -> Path:
             raise RuntimeError("SENTINEL_DB_PATH must point to a file inside the Railway Volume mount.")
         return target
 
+    # Outside Railway (Botkeep, local Docker, VPS), use an explicit path
+    # when provided; otherwise create the SQLite file in the project folder.
+    return Path(override) if override else DEFAULT_DATABASE_PATH
+
 
 @dataclass(frozen=True)
 class GuildSettings:
