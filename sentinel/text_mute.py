@@ -17,7 +17,9 @@ logger = logging.getLogger("sentinel.text_mute")
 CHANNEL_TYPES = tuple(
     cls for cls in (getattr(discord, "TextChannel", None),
                     getattr(discord, "ForumChannel", None),
-                    getattr(discord, "MediaChannel", None))
+                    getattr(discord, "MediaChannel", None),
+                    getattr(discord, "VoiceChannel", None),
+                    getattr(discord, "StageChannel", None))
     if cls is not None
 )
 
@@ -247,12 +249,20 @@ class TextMute(commands.Cog):
         role = await self.ensure_role(guild)
         await self.validate(guild, actor, member, me, role=role)
         await self.sync_channels(guild, role)
-        # Member-specific denies override other roles that explicitly allow writing.
-        await self.sync_member_channels(guild, member)
-        if role not in member.roles:
-            await member.add_roles(
-                role, reason=f"Text mute by {actor} ({actor.id}): {reason[:300]}",
-            )
+        try:
+            # Member-specific denies override other roles that explicitly allow writing.
+            await self.sync_member_channels(guild, member)
+            if role not in member.roles:
+                await member.add_roles(
+                    role, reason=f"Text mute by {actor} ({actor.id}): {reason[:300]}",
+                )
+        except Exception:
+            # Do not leave half-applied member channel restrictions after failure.
+            try:
+                await self.restore_member_overwrites(guild, member)
+            except TextMuteError:
+                logger.exception("Failed to roll back incomplete text mute %s", member.id)
+            raise
         expires_at = int((datetime.now(timezone.utc) + timedelta(minutes=minutes)).timestamp())
         self.db.execute(
             """INSERT INTO text_mutes(guild_id, member_id, expires_at)
@@ -332,7 +342,7 @@ class TextMute(commands.Cog):
                 "SELECT member_id FROM text_mutes WHERE guild_id=?", (channel.guild.id,)
             ).fetchall():
                 member = channel.guild.get_member(member_id)
-                if member:
+                if member and role in member.roles:
                     await self.apply_member_overwrite(channel, member)
         except (discord.Forbidden, discord.HTTPException):
             logger.exception("Failed to apply text mute in new channel %s", channel.id)
@@ -350,7 +360,7 @@ class TextMute(commands.Cog):
                 "SELECT member_id FROM text_mutes WHERE guild_id=?", (after.guild.id,)
             ).fetchall():
                 member = after.guild.get_member(member_id)
-                if member:
+                if member and role in member.roles:
                     await self.apply_member_overwrite(after, member)
         except (discord.Forbidden, discord.HTTPException):
             logger.exception("Failed to enforce text mute in channel %s", after.id)
