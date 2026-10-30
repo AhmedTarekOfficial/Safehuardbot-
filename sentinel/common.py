@@ -1,6 +1,8 @@
 import discord
 from discord import app_commands
 
+from .i18n import tr
+
 
 async def reply(interaction: discord.Interaction, content: str = None, *, embed=None, view=None):
     kwargs = {
@@ -20,37 +22,37 @@ async def reply(interaction: discord.Interaction, content: str = None, *, embed=
 
 
 def target_error(actor: discord.Member, target: discord.Member, bot: discord.Member,
-                 *, for_timeout: bool = False) -> str | None:
+                 *, for_timeout: bool = False, language: str = "en") -> str | None:
     """Mirror hierarchy safety for the invoker AND the bot."""
     guild = actor.guild
     if target.id == actor.id:
-        return "You cannot moderate yourself."
+        return "مينفعش تنفذ الأمر على نفسك." if language == "ar" else "You cannot moderate yourself."
     if target.id == bot.id:
-        return "I cannot moderate myself."
+        return "البوت مينفعش ينفذ الأمر على نفسه." if language == "ar" else "I cannot moderate myself."
     if target.id == guild.owner_id:
-        return "The server owner cannot be moderated."
+        return "مينفعش تعاقب مالك السيرفر." if language == "ar" else "The server owner cannot be moderated."
     if actor.id != guild.owner_id and actor.top_role <= target.top_role:
-        return "Your highest role must be above the target's highest role."
+        return "لازم أعلى رول عندك يكون أعلى من رول العضو." if language == "ar" else "Your highest role must be above the target's highest role."
     if bot.top_role <= target.top_role:
-        return "Move my bot role above the target's highest role."
+        return "لازم ترفع رول البوت فوق رول العضو." if language == "ar" else "Move my bot role above the target's highest role."
     if for_timeout and target.guild_permissions.administrator:
-        return "Discord does not permit timing out administrators."
+        return "مينفعش تعمل Timeout لعضو Administrator." if language == "ar" else "Discord does not permit timing out administrators."
     return None
 
 
-def role_error(actor: discord.Member, bot: discord.Member, role: discord.Role) -> str | None:
+def role_error(actor: discord.Member, bot: discord.Member, role: discord.Role, *, language: str = "en") -> str | None:
     if role.is_default() or role.managed:
-        return "This role is managed by Discord/integrations or is @everyone."
+        return "الرول دي تابعة لـ Discord أو @everyone ومينفعش تعديلها." if language == "ar" else "This role is managed by Discord/integrations or is @everyone."
     if bot.top_role <= role:
-        return "Move my bot role above the role you want to manage."
+        return "ارفع رول البوت فوق الرول المطلوب." if language == "ar" else "Move my bot role above the role you want to manage."
     if actor.id != actor.guild.owner_id and actor.top_role <= role:
-        return "You cannot manage a role at or above your highest role."
+        return "مينفعش تدير رول أعلى من رولك أو مساوية ليه." if language == "ar" else "You cannot manage a role at or above your highest role."
     # Disallow using a more-privileged bot as an escalation path.
     rights = actor.guild_permissions
     if actor.id != actor.guild.owner_id and not rights.administrator:
         missing_bits = role.permissions.value & ~rights.value
         if missing_bits:
-            return "This role grants permissions you do not have yourself."
+            return "الرول دي بتدي صلاحيات انت مش معاك." if language == "ar" else "This role grants permissions you do not have yourself."
     return None
 
 
