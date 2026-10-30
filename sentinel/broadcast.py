@@ -242,6 +242,20 @@ class Broadcast(commands.GroupCog, group_name="broadcast", group_description="Op
         language = lang(self.bot.store, interaction.guild_id)
         await reply(interaction, tr(language, "bc_count", count=self.state.count(interaction.guild_id)))
 
+    @app_commands.command(name="stop", description="Stop the ongoing announcement delivery")
+    @app_commands.default_permissions(manage_guild=True)
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def stop(self, interaction: discord.Interaction):
+        language = lang(self.bot.store, interaction.guild_id)
+        prefix = f"sentinel-broadcast-{interaction.guild_id}-"
+        running = [task for task in self.tasks if not task.done() and task.get_name().startswith(prefix)]
+        if not running:
+            await reply(interaction, tr(language, "bc_nothing_running"))
+            return
+        for task in running:
+            task.cancel()
+        await reply(interaction, tr(language, "bc_stop_requested"))
+
     async def run_campaign(self, guild: discord.Guild, author_id: int, body: str, run_id: int):
         counts = dict(sent=0, blocked=0, failed=0, skipped=0)
         status = "completed"
