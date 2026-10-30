@@ -216,7 +216,8 @@ class Shortcuts(commands.GroupCog, group_name="shortcut", group_description="Con
                 if member is None:
                     await message.reply(tr(language, "short_target", word=word), mention_author=False)
                     return
-                error = target_error(actor, member, me, for_timeout=action in ("timeout", "untimeout"))
+                error = target_error(actor, member, me, for_timeout=action in ("timeout", "untimeout"),
+                                     language=language)
                 if error:
                     await message.reply(error, mention_author=False)
                     return
