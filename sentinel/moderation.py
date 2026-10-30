@@ -4,6 +4,12 @@ from discord import app_commands
 from discord.ext import commands
 
 from .common import log_action, reply, role_error, target_error
+from .i18n import lang
+
+
+def bilingual(bot, interaction, en: str, ar: str) -> str:
+    return ar if lang(bot.store, interaction.guild_id) == "ar" else en
+
 
 
 def audit_reason(actor: discord.Member, reason: str) -> str:
@@ -36,7 +42,9 @@ class Moderation(commands.Cog):
         if not await self.check_member(interaction, member):
             return
         await member.kick(reason=audit_reason(interaction.user, reason))
-        await reply(interaction, f"Kicked **{discord.utils.escape_markdown(str(member))}**.")
+        await reply(interaction, bilingual(self.bot, interaction,
+            f"Kicked **{discord.utils.escape_markdown(str(member))}**.",
+            f"تم طرد **{discord.utils.escape_markdown(str(member))}**."))
         await log_action(interaction.guild, self.bot.store, "Member kicked",
                          f"Member: {member} (`{member.id}`)\nBy: {interaction.user} (`{interaction.user.id}`)\nReason: {reason}")
 
@@ -53,7 +61,9 @@ class Moderation(commands.Cog):
             return
         await interaction.guild.ban(member, reason=audit_reason(interaction.user, reason),
                                     delete_message_seconds=delete_hours * 3600)
-        await reply(interaction, f"Banned **{discord.utils.escape_markdown(str(member))}**.")
+        await reply(interaction, bilingual(self.bot, interaction,
+            f"Banned **{discord.utils.escape_markdown(str(member))}**.",
+            f"تم حظر **{discord.utils.escape_markdown(str(member))}**."))
         await log_action(interaction.guild, self.bot.store, "Member banned",
                          f"Member: {member} (`{member.id}`)\nBy: {interaction.user}\nReason: {reason}")
 
@@ -65,15 +75,17 @@ class Moderation(commands.Cog):
     async def unban(self, interaction: discord.Interaction, user_id: str, reason: str = "No reason"):
         await interaction.response.defer(ephemeral=True)
         if not user_id.isdecimal() or not (1 <= int(user_id) < 2**64):
-            await reply(interaction, "Provide a valid numeric Discord User ID.")
+            await reply(interaction, bilingual(self.bot, interaction,
+                        "Provide a valid numeric Discord User ID.", "اكتب User ID صحيح بالأرقام."))
             return
         user = discord.Object(id=int(user_id))
         try:
             await interaction.guild.unban(user, reason=audit_reason(interaction.user, reason))
         except discord.NotFound:
-            await reply(interaction, "This user is not banned.")
+            await reply(interaction, bilingual(self.bot, interaction, "This user is not banned.", "العضو ده مش محظور."))
             return
-        await reply(interaction, f"Unbanned user ID `{user_id}`.")
+        await reply(interaction, bilingual(self.bot, interaction,
+            f"Unbanned user ID `{user_id}`.", f"تم فك الحظر عن `{user_id}`."))
         await log_action(interaction.guild, self.bot.store, "User unbanned",
                          f"User ID: `{user_id}`\nBy: {interaction.user}\nReason: {reason}")
 
@@ -89,7 +101,9 @@ class Moderation(commands.Cog):
         if not await self.check_member(interaction, member, for_timeout=True):
             return
         await member.timeout(timedelta(minutes=minutes), reason=audit_reason(interaction.user, reason))
-        await reply(interaction, f"Timed out **{discord.utils.escape_markdown(str(member))}** for **{minutes} minutes**.")
+        await reply(interaction, bilingual(self.bot, interaction,
+            f"Timed out **{discord.utils.escape_markdown(str(member))}** for **{minutes} minutes**.",
+            f"تم عمل Timeout للعضو **{discord.utils.escape_markdown(str(member))}** لمدة **{minutes} دقيقة**."))
         await log_action(interaction.guild, self.bot.store, "Member timed out",
                          f"Member: {member} (`{member.id}`)\nBy: {interaction.user}\nDuration: {minutes} minutes\nReason: {reason}")
 
@@ -103,7 +117,9 @@ class Moderation(commands.Cog):
         if not await self.check_member(interaction, member, for_timeout=True):
             return
         await member.timeout(None, reason=audit_reason(interaction.user, reason))
-        await reply(interaction, f"Removed timeout from **{discord.utils.escape_markdown(str(member))}**.")
+        await reply(interaction, bilingual(self.bot, interaction,
+            f"Removed timeout from **{discord.utils.escape_markdown(str(member))}**.",
+            f"تم إلغاء Timeout من **{discord.utils.escape_markdown(str(member))}**."))
         await log_action(interaction.guild, self.bot.store, "Timeout removed",
                          f"Member: {member} (`{member.id}`)\nBy: {interaction.user}\nReason: {reason}")
 
@@ -117,10 +133,12 @@ class Moderation(commands.Cog):
         await interaction.response.defer(ephemeral=True)
         channel = interaction.channel
         if not isinstance(channel, (discord.TextChannel, discord.Thread)):
-            await reply(interaction, "This works only in text channels or threads.")
+            await reply(interaction, bilingual(self.bot, interaction, "This works only in text channels or threads.", "الأمر ده متاح في القنوات النصية بس."))
             return
         deleted = await channel.purge(limit=amount)
-        await reply(interaction, f"Deleted **{len(deleted)}** messages from this channel.")
+        await reply(interaction, bilingual(self.bot, interaction,
+            f"Deleted **{len(deleted)}** messages from this channel.",
+            f"تم حذف **{len(deleted)}** رسالة من القناة."))
         await log_action(interaction.guild, self.bot.store, "Messages deleted",
                          f"Channel: {channel.mention}\nBy: {interaction.user}\nCount: {len(deleted)}")
 
@@ -149,10 +167,12 @@ class Roles(commands.GroupCog, group_name="role", group_description="Give and re
         if not await self.validate(interaction, member, role):
             return
         if role in member.roles:
-            await reply(interaction, "This member already has that role.")
+            await reply(interaction, bilingual(self.bot, interaction, "This member already has that role.", "العضو عنده الرول دي بالفعل."))
             return
         await member.add_roles(role, reason=audit_reason(interaction.user, "Role added"))
-        await reply(interaction, f"Added **{role.name}** to **{discord.utils.escape_markdown(str(member))}**.")
+        await reply(interaction, bilingual(self.bot, interaction,
+            f"Added **{role.name}** to **{discord.utils.escape_markdown(str(member))}**.",
+            f"تم إضافة **{role.name}** للعضو **{discord.utils.escape_markdown(str(member))}**."))
         await log_action(interaction.guild, self.bot.store, "Role added",
                          f"Role: {role.name} (`{role.id}`)\nMember: {member} (`{member.id}`)\nBy: {interaction.user}")
 
@@ -164,9 +184,11 @@ class Roles(commands.GroupCog, group_name="role", group_description="Give and re
         if not await self.validate(interaction, member, role):
             return
         if role not in member.roles:
-            await reply(interaction, "This member does not have that role.")
+            await reply(interaction, bilingual(self.bot, interaction, "This member does not have that role.", "العضو معندوش الرول دي."))
             return
         await member.remove_roles(role, reason=audit_reason(interaction.user, "Role removed"))
-        await reply(interaction, f"Removed **{role.name}** from **{discord.utils.escape_markdown(str(member))}**.")
+        await reply(interaction, bilingual(self.bot, interaction,
+            f"Removed **{role.name}** from **{discord.utils.escape_markdown(str(member))}**.",
+            f"تم إزالة **{role.name}** من **{discord.utils.escape_markdown(str(member))}**."))
         await log_action(interaction.guild, self.bot.store, "Role removed",
                          f"Role: {role.name} (`{role.id}`)\nMember: {member} (`{member.id}`)\nBy: {interaction.user}")
