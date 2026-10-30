@@ -59,6 +59,7 @@ class Guard(commands.GroupCog, group_name="guard", group_description="Configure 
     @app_commands.command(description="Set the channel that receives moderation and guard events")
     @app_commands.checks.has_permissions(manage_guild=True)
     async def logs(self, interaction: discord.Interaction, channel: discord.TextChannel):
+        await interaction.response.defer(ephemeral=True)
         me = interaction.guild.me or await interaction.guild.fetch_member(self.bot.user.id)
         perms = channel.permissions_for(me)
         if not (perms.view_channel and perms.send_messages and perms.embed_links):

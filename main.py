@@ -6,13 +6,16 @@ from discord import app_commands
 from discord.ext import commands
 from dotenv import load_dotenv
 
+# Load local .env before importing components that may read settings.
+# Railway environment variables take priority (load_dotenv never overrides them).
+load_dotenv()
+
 from sentinel.config import SettingsStore
 from sentinel.common import reply
 from sentinel.guard import Guard
 from sentinel.moderation import Moderation, Roles
 from sentinel.panel import PermissionsCog
 
-load_dotenv()
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("sentinel")
 

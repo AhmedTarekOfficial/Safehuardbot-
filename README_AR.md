@@ -103,3 +103,25 @@ source .venv/bin/activate
 - لو قفلت البرنامج، البوت هيقف. التشغيل الدائم يحتاج جهاز شغال طول الوقت أو VPS/Hosting.
 
 المشروع فيه ملف `README.md` بالإنجليزي، وملفات Docker للتشغيل على استضافة تدعم Docker.
+
+## 7) نشره على Railway (مع حفظ البيانات)
+
+1. افتح Railway واعمل New Project ثم Deploy from GitHub Repo واختار Safehuardbot-.
+2. المشروع فيه Dockerfile بالفعل؛ مش محتاج Public Domain أو Web Port.
+3. من خدمة Railway افتح Volumes واعمل Add Volume بمسار /app/data.
+4. من Variables أضف: DISCORD_TOKEN (توكن جديد) وDEV_GUILD_ID (اختياري) وSENTINEL_DB_PATH=/app/data/sentinel.sqlite3.
+5. استخدم Replicas = 1 لأن نسخة المشروع بتستعمل SQLite ووصلة Discord واحدة.
+6. راقب Deployment Logs وتأكد إن البوت سجل Logged in as وظهرت أوامر Slash.
+
+حماية البيانات: تشغيل Railway من غير Volume، أو حفظ قاعدة البيانات خارجه، هيتوقف برسالة واضحة بدل فقدان الإعدادات عند إعادة النشر.
+
+الأمان: اعمل Reset لتوكن Discord وألغِ GitHub PAT القديم اللي اتشارك؛ متضيفش GitHub PAT لخدمة Railway.
+
+## 8) اختبار المشروع
+
+بعد تثبيت المكتبات شغّل:
+
+    python -m unittest discover -s tests -v
+
+GitHub Actions بيشغّل Compile وTests على Python 3.12 مع كل Push أو Pull Request.
+اختبارات Discord هي Mock Tests من غير اتصال بسيرفر حقيقي؛ جرّب Kick وBan وTimeout وPermissions على Test Server قبل الاستخدام الفعلي.

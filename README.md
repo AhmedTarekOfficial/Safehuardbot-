@@ -105,3 +105,20 @@ docker compose logs -f
 ```
 
 Settings are kept in `./data/sentinel.sqlite3` and survive container restarts.
+
+## Railway deployment and reliability
+
+Use the included Dockerfile. In Railway, attach a persistent Volume at /app/data, set
+DISCORD_TOKEN to a newly rotated bot token, and set
+SENTINEL_DB_PATH=/app/data/sentinel.sqlite3. Set DEV_GUILD_ID for faster command sync
+while testing; use a single service replica and no public HTTP domain. Railway startup will
+reject missing Volume mounts or a database path outside its mount, avoiding accidental
+loss of settings on redeploy. Local .env variables are read before settings initialization.
+Longer moderation actions defer their Discord interaction before network calls.
+
+Run the available tests with python -m unittest discover -s tests -v after installing
+requirements.txt; a GitHub Actions workflow also runs them on Python 3.12.
+These tests use mocks and are not a replacement for live-server acceptance tests.
+
+Tokens published anywhere should be revoked/rotated; never commit .env or put
+credentials into GitHub issues, commits or chat logs.

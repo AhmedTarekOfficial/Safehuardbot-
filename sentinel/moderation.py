@@ -32,6 +32,7 @@ class Moderation(commands.Cog):
     @app_commands.checks.has_permissions(kick_members=True)
     @app_commands.checks.bot_has_permissions(kick_members=True)
     async def kick(self, interaction: discord.Interaction, member: discord.Member, reason: str = "No reason"):
+        await interaction.response.defer(ephemeral=True)
         if not await self.check_member(interaction, member):
             return
         await member.kick(reason=audit_reason(interaction.user, reason))
@@ -47,6 +48,7 @@ class Moderation(commands.Cog):
     @app_commands.describe(delete_hours="Past message history to delete: 0–168 hours")
     async def ban(self, interaction: discord.Interaction, member: discord.Member, reason: str = "No reason",
                   delete_hours: app_commands.Range[int, 0, 168] = 0):
+        await interaction.response.defer(ephemeral=True)
         if not await self.check_member(interaction, member):
             return
         await interaction.guild.ban(member, reason=audit_reason(interaction.user, reason),
@@ -61,6 +63,7 @@ class Moderation(commands.Cog):
     @app_commands.checks.has_permissions(ban_members=True)
     @app_commands.checks.bot_has_permissions(ban_members=True)
     async def unban(self, interaction: discord.Interaction, user_id: str, reason: str = "No reason"):
+        await interaction.response.defer(ephemeral=True)
         if not user_id.isdecimal() or not (1 <= int(user_id) < 2**64):
             await reply(interaction, "Provide a valid numeric Discord User ID.")
             return
@@ -82,6 +85,7 @@ class Moderation(commands.Cog):
     @app_commands.describe(minutes="Timeout length in minutes, maximum 28 days")
     async def timeout_member(self, interaction: discord.Interaction, member: discord.Member,
                              minutes: app_commands.Range[int, 1, 40320], reason: str = "No reason"):
+        await interaction.response.defer(ephemeral=True)
         if not await self.check_member(interaction, member, for_timeout=True):
             return
         await member.timeout(timedelta(minutes=minutes), reason=audit_reason(interaction.user, reason))
@@ -95,6 +99,7 @@ class Moderation(commands.Cog):
     @app_commands.checks.has_permissions(moderate_members=True)
     @app_commands.checks.bot_has_permissions(moderate_members=True)
     async def untimeout(self, interaction: discord.Interaction, member: discord.Member, reason: str = "No reason"):
+        await interaction.response.defer(ephemeral=True)
         if not await self.check_member(interaction, member, for_timeout=True):
             return
         await member.timeout(None, reason=audit_reason(interaction.user, reason))
@@ -109,11 +114,11 @@ class Moderation(commands.Cog):
     @app_commands.checks.bot_has_permissions(manage_messages=True, read_message_history=True)
     @app_commands.describe(amount="Messages to delete, from 1 to 100")
     async def purge(self, interaction: discord.Interaction, amount: app_commands.Range[int, 1, 100]):
+        await interaction.response.defer(ephemeral=True)
         channel = interaction.channel
         if not isinstance(channel, (discord.TextChannel, discord.Thread)):
             await reply(interaction, "This works only in text channels or threads.")
             return
-        await interaction.response.defer(ephemeral=True)
         deleted = await channel.purge(limit=amount)
         await reply(interaction, f"Deleted **{len(deleted)}** messages from this channel.")
         await log_action(interaction.guild, self.bot.store, "Messages deleted",
@@ -140,6 +145,7 @@ class Roles(commands.GroupCog, group_name="role", group_description="Give and re
     @app_commands.checks.has_permissions(manage_roles=True)
     @app_commands.checks.bot_has_permissions(manage_roles=True)
     async def add(self, interaction: discord.Interaction, member: discord.Member, role: discord.Role):
+        await interaction.response.defer(ephemeral=True)
         if not await self.validate(interaction, member, role):
             return
         if role in member.roles:
@@ -154,6 +160,7 @@ class Roles(commands.GroupCog, group_name="role", group_description="Give and re
     @app_commands.checks.has_permissions(manage_roles=True)
     @app_commands.checks.bot_has_permissions(manage_roles=True)
     async def remove(self, interaction: discord.Interaction, member: discord.Member, role: discord.Role):
+        await interaction.response.defer(ephemeral=True)
         if not await self.validate(interaction, member, role):
             return
         if role not in member.roles:
