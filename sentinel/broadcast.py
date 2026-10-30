@@ -2,7 +2,9 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timezone
 import logging
+import math
 
 import discord
 from discord import app_commands
@@ -17,6 +19,7 @@ logger = logging.getLogger("sentinel.broadcast")
 # Stay well below message caps and send at a deliberately conservative pace.
 MAX_RECIPIENTS = 500
 DM_INTERVAL_SECONDS = 1.5
+CAMPAIGN_COOLDOWN_SECONDS = 300
 
 
 def report_embed(language: str, run: dict, guild: discord.Guild | None = None) -> discord.Embed:
@@ -106,6 +109,12 @@ class ConfirmView(discord.ui.View):
         if self.guild_id in self.cog.active_guilds:
             await interaction.response.edit_message(content=tr(language, "bc_busy"), embed=None, view=None)
             return
+        cooldown = self.cog.cooldown_remaining(self.guild_id)
+        if cooldown:
+            await interaction.response.edit_message(
+                content=tr(language, "bc_cooldown", seconds=cooldown), embed=None, view=None
+            )
+            return
         # Re-confirm if subscriber counts changed, so preview remains meaningful.
         now_count = self.cog.state.count(self.guild_id)
         if now_count != self.count or now_count > MAX_RECIPIENTS or now_count == 0:
@@ -143,6 +152,14 @@ class Broadcast(commands.GroupCog, group_name="broadcast", group_description="Op
         self.active_guilds: set[int] = set()
         self.tasks: set[asyncio.Task] = set()
 
+    def cooldown_remaining(self, guild_id: int) -> int:
+        last = self.state.latest(guild_id)
+        if not last:
+            return 0
+        started = datetime.fromisoformat(last["started_at"])
+        remaining = CAMPAIGN_COOLDOWN_SECONDS - (datetime.now(timezone.utc) - started).total_seconds()
+        return max(0, math.ceil(remaining))
+
     @app_commands.command(name="subscribe", description="Opt into server announcement DMs")
     async def subscribe(self, interaction: discord.Interaction):
         created = self.state.subscribe(interaction.guild_id, interaction.user.id)
@@ -161,6 +178,9 @@ class Broadcast(commands.GroupCog, group_name="broadcast", group_description="Op
     @app_commands.checks.bot_has_permissions(send_messages=True, embed_links=True)
     async def panel(self, interaction: discord.Interaction):
         language = lang(self.bot.store, interaction.guild_id)
+        if not interaction.channel.permissions_for(interaction.user).send_messages:
+            await reply(interaction, tr(language, "missing_user"))
+            return
         embed = discord.Embed(
             title=tr(language, "bc_panel_title"),
             description=tr(language, "bc_panel_desc"),
@@ -181,6 +201,10 @@ class Broadcast(commands.GroupCog, group_name="broadcast", group_description="Op
         language = lang(self.bot.store, interaction.guild_id)
         if interaction.guild_id in self.active_guilds:
             await reply(interaction, tr(language, "bc_busy"))
+            return
+        cooldown = self.cooldown_remaining(interaction.guild_id)
+        if cooldown:
+            await reply(interaction, tr(language, "bc_cooldown", seconds=cooldown))
             return
         count = self.state.count(interaction.guild_id)
         if count == 0:
@@ -302,6 +326,10 @@ class Announcements(commands.Cog):
         message: app_commands.Range[str, 1, 1600],
     ):
         language = lang(self.bot.store, interaction.guild_id)
+        staff_perms = channel.permissions_for(interaction.user)
+        if not (staff_perms.view_channel and staff_perms.send_messages):
+            await reply(interaction, tr(language, "missing_user"))
+            return
         bot_member = interaction.guild.me or await interaction.guild.fetch_member(self.bot.user.id)
         if not (channel.permissions_for(bot_member).view_channel
                 and channel.permissions_for(bot_member).send_messages
