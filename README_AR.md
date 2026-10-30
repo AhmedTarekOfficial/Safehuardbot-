@@ -125,3 +125,14 @@ source .venv/bin/activate
 
 GitHub Actions بيشغّل Compile وTests على Python 3.12 مع كل Push أو Pull Request.
 اختبارات Discord هي Mock Tests من غير اتصال بسيرفر حقيقي؛ جرّب Kick وBan وTimeout وPermissions على Test Server قبل الاستخدام الفعلي.
+
+## 9) التشغيل على Botkeep / Pterodactyl
+
+- وصل السيرفر بمستودع GitHub على فرع `main`، وحدد ملف التشغيل `main.py`.
+- `DISCORD_TOKEN` لازم يحتوي على التوكن الجديد. `DEV_GUILD_ID` اختياري.
+- على Botkeep مش محتاج متغيرات Railway؛ `RAILWAY_ENVIRONMENT` و`RAILWAY_SERVICE_ID` مش لازم يكونوا موجودين.
+- `SENTINEL_DB_PATH` اختياري: لو مش موجود، ملف SQLite هيتعمل باسم `sentinel.sqlite3` في مجلد المشروع.
+- لو حابب مسار واضح: `SENTINEL_DB_PATH=/home/container/data/sentinel.sqlite3` (المجلد بيتعمل تلقائيًا).
+- تأكد من لوحة الاستضافة إن مساحة ملفات السيرفر دائمة واعمل Backup دوري لملف SQLite؛ الكود وحده مش بيضمن بقاء البيانات بعد إعادة تثبيت أو حذف السيرفر.
+- رسالة `PyNaCl is not installed` مجرد تحذير متعلق بالصوت، ومش تمنع تشغيل بوت الإدارة النصي.
+- بعد تحديث الملفات شغّل Restart، ولو حصل Error جديد راجع Console وابعت traceback من غير أي Tokens.
