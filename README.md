@@ -122,3 +122,22 @@ These tests use mocks and are not a replacement for live-server acceptance tests
 
 Tokens published anywhere should be revoked/rotated; never commit .env or put
 credentials into GitHub issues, commits or chat logs.
+
+## Bilingual control center and staff shortcuts
+
+- `/helpbot`: private themed tabbed dashboard for moderation, shield, roles, shortcuts and language.
+- `/permissions`: localized role inspector with role selection, pagination, and permission search.
+- `/guard status`: themed, bilingual protection overview.
+- `/language`: Manage Server members can select Arabic or English for the entire guild.
+
+Custom chat commands require no leading `/` or prefix. Configure a **staff-only channel** first:
+
+1. `/shortcut channel channel:#staff-commands`
+2. `/shortcut set word:اص action:timeout`
+3. Reply to a member's message with `اص 10` (10-minute timeout) or send `اص @member 10`.
+4. See mappings using `/shortcut list`, remove with `/shortcut remove`, and suspend all with `/shortcut disable`.
+
+Available actions: `timeout`, `untimeout`, `kick`, `ban`, `purge`, `antispam_on/off`, `links_on/off`, `raid_on/off`.
+A `purge` shortcut uses a number of messages as its argument; guard toggles take no arguments.
+Staff and bot Discord permissions, target hierarchy, channel scoping, rate limiting, and exact first-word matching are checked on each command. Shortcuts remain disabled until a channel is configured. Enable Message Content Intent in Developer Portal. SQLite migrations preserve existing guard settings, with new language and shortcuts tables.
+
