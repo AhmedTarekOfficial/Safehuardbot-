@@ -151,7 +151,7 @@ Previously no-prefix commands were silently disabled until a staff channel was s
 - `/shortcut diagnose`: inspect effective scope, current channel and whether the bot can see/reply.
 - `/shortcut set`, `/shortcut list`, `/shortcut remove`: manage mappings.
 
-New commands: `/mute` / `/unmute` apply and remove text Timeout, while `/vmute` / `/vunmute` use Discord's server voice mute for a member currently connected to voice. Shortcut aliases support `mute`, `unmute`, `vmute`, and `vunmute` alongside existing actions.
+New commands: `/mute` / `/unmute` now apply and remove channel-only writing restrictions (role + explicit member overwrites), never Timeout, while `/vmute` / `/vunmute` use Discord's server voice mute for a member currently connected to voice. Shortcut aliases support `mute`, `unmute`, `vmute`, and `vunmute` alongside existing actions.
 
 Example: `/shortcut set word:اص action:mute` followed by `اص @member 10` or replying `اص 10`. Make sure the privileged Message Content Intent is enabled, and do not choose common chat words as aliases.
 
@@ -170,3 +170,9 @@ Broadcasts are strictly **opt-in**. Each recipient is rechecked for subscription
 The initiating moderator receives an end-of-run report by DM; if unavailable, the report is stored in SQLite and available via `/broadcast status`. Counters include attempted recipients, accepted DMs, Forbidden deliveries (privacy/block restrictions, exact cause unknown), other failures and skipped/unsubscribed users. Accepted DMs do not establish whether messages were read. On restart, unfinished runs are marked interrupted and are **not automatically retried** to avoid duplicate messages.
 
 This feature requires the existing Server Members Intent. No Message Content Intent is needed for the slash-command broadcast itself. Back up the SQLite file before redeployment.
+
+## Text-only mute (no Timeout)
+
+`/mute member:@user minutes:10` creates a dedicated `VanGuard • Muted` role when needed. It denies sending messages, creating threads, and sending in threads using channel overwrites for the role and the affected member. It does **not** change Connect, Speak, or Discord Timeout, so voice chat keeps working. `/unmute` restores the member's original permission overwrite settings and removes the role. Durations and previous settings persist in SQLite across bot restarts, and new channels receive the mute restrictions. Administrators cannot be muted by channel overwrites.
+
+Permissions: bot needs Manage Roles for both the role and channel overwrites; staff need Manage Roles. Role hierarchy must allow the action. Discord enforces an overwrite limit per channel, so errors are possible on heavily customized servers. The previous version's Timeout remains until `/untimeout` is used separately; changing `/mute` does not clear already active Timeouts. Shortcuts use the same new service.
