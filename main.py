@@ -83,11 +83,11 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
     if isinstance(error, app_commands.BotMissingPermissions):
         return await reply(interaction, tr(language, "missing_bot"))
     if isinstance(error, app_commands.NoPrivateMessage):
-        return await reply(interaction, "This command only works inside a server.")
+        return await reply(interaction, "الأمر ده بيشتغل داخل السيرفر بس." if language == "ar" else "This command only works inside a server.")
     if isinstance(error, app_commands.CheckFailure):
-        return await reply(interaction, "You cannot run this command here.")
+        return await reply(interaction, "مش مسموحلك تستخدم الأمر هنا." if language == "ar" else "You cannot run this command here.")
     if isinstance(error, app_commands.CommandOnCooldown):
-        return await reply(interaction, f"Try again in {error.retry_after:.1f} seconds.")
+        return await reply(interaction, (f"جرب تاني بعد {error.retry_after:.1f} ثانية." if language == "ar" else f"Try again in {error.retry_after:.1f} seconds."))
     if isinstance(error, app_commands.CommandInvokeError) and isinstance(error.original, discord.Forbidden):
         return await reply(interaction, tr(language, "command_failed"))
     if isinstance(error, app_commands.CommandInvokeError) and isinstance(error.original, discord.HTTPException):
