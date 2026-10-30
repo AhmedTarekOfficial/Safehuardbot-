@@ -162,6 +162,7 @@ Example: `/shortcut set word:اص action:mute` followed by `اص @member 10` or 
 - `/broadcast count` (Manage Server): current opted-in audience size.
 - `/broadcast send message:...` (Manage Server): private preview with confirmation before any DM.
 - `/broadcast status` (Manage Server): latest campaign results, including interrupted runs.
+- `/broadcast stop` (Manage Server): stop a running campaign; delivery counters remain available.
 - `/announce channel:#announcements message:...` (Manage Server): post a server-channel announcement without unsolicited member DMs.
 
 Broadcasts are strictly **opt-in**. Each recipient is rechecked for subscription and server membership immediately before sending. DMs are spaced by 1.5 seconds, limited to 500 opted-in recipients per campaign, and campaigns have a five-minute start cooldown. Only one campaign can be active per server at a time.
