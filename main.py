@@ -14,6 +14,7 @@ from sentinel.config import SettingsStore
 from sentinel.common import reply
 from sentinel.guard import Guard
 from sentinel.moderation import Moderation, Roles
+from sentinel.text_mute import TextMute
 from sentinel.panel import PermissionsCog
 from sentinel.shortcuts import Shortcuts
 from sentinel.dashboard import HelpView, LanguageView
@@ -35,7 +36,7 @@ class SentinelBot(commands.Bot):
         self.store = SettingsStore()
 
     async def setup_hook(self):
-        for cog in (Moderation(self), Roles(self), Guard(self), PermissionsCog(self), Shortcuts(self),
+        for cog in (Moderation(self), TextMute(self), Roles(self), Guard(self), PermissionsCog(self), Shortcuts(self),
                     Broadcast(self), Announcements(self)):
             await self.add_cog(cog)
         # Persistent subscription controls continue working on messages after bot restarts.
