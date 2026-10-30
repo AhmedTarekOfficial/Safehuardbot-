@@ -1,0 +1,105 @@
+# Sentinel Bot — دليل التشغيل بالعربي
+
+ده مشروع Discord Bot لإدارة وحماية السيرفر، مكتوب بـ **Python** و **discord.py**.
+
+## 1) إنشاء البوت
+
+1. افتح https://discord.com/developers/applications
+2. اختار **New Application**، وسميها Sentinel أو أي اسم تحبه.
+3. من صفحة **Bot** اعمل Reset Token أو Copy Token. **ما تبعتش Token لأي حد، ومتعملوش Push على GitHub**.
+4. في نفس صفحة Bot، شغّل:
+   - **Server Members Intent**: لمراقبة الدخول المفاجئ لأعضاء كتير.
+   - **Message Content Intent**: لمراقبة Spam وروابط الدعوات.
+5. من **OAuth2 / URL Generator** أو **Installation** اختار الـ scopes: `bot` و `applications.commands`.
+6. ادّي البوت الصلاحيات المناسبة: **Manage Roles, Kick Members, Ban Members, Moderate Members, Manage Messages, Read Message History, View Channels, Send Messages, Embed Links**.
+7. ادخل البوت لسيرفرك. خلي Role بتاعه **أعلى من الرولات اللي المفروض يديرها** لكن من غير ما تديله Administrator لو مش محتاج.
+
+## 2) تشغيل المشروع
+
+نزّل Python 3.11 أو أحدث، وفك ضغط المشروع، وافتح Terminal داخل فولدر `sentinel-discord-bot`.
+
+على Windows PowerShell:
+
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+Copy-Item .env.example .env
+```
+
+افتح ملف `.env`، وغير:
+
+```dotenv
+DISCORD_TOKEN=PUT_YOUR_REAL_BOT_TOKEN_HERE
+DEV_GUILD_ID=YOUR_SERVER_ID
+```
+
+الـ `DEV_GUILD_ID` اختياري، لكنه بيخلي أوامر Slash تظهر أسرع في السيرفر اللي بتجرب فيه. تقدر تجيب Server ID من Discord بعد تفعيل Developer Mode. **متشاركش ملف `.env`**.
+
+بعدها شغّل:
+
+```powershell
+python main.py
+```
+
+على Linux أو macOS نفس الخطوات لكن تفعيل البيئة الافتراضية يكون:
+
+```bash
+source .venv/bin/activate
+```
+
+## 3) الأوامر
+
+| الأمر | الوظيفة |
+| --- | --- |
+| `/helpbot` | عرض الأوامر |
+| `/role add` | إضافة رول لعضو |
+| `/role remove` | إزالة رول |
+| `/kick` | إخراج عضو |
+| `/ban` | حظر عضو |
+| `/unban` | فك الحظر باستخدام User ID |
+| `/timeout` | Timeout بالدقايق لحد 28 يوم |
+| `/untimeout` | إلغاء Timeout |
+| `/purge` | حذف 1–100 رسالة |
+| `/permissions` | فتح Panel عرض الصلاحيات والبحث |
+| `/guard logs` | تحديد قناة الـ Logs |
+| `/guard antispam` | تفعيل/تعطيل مقاومة Spam |
+| `/guard links` | تفعيل/تعطيل حذف روابط دعوات Discord |
+| `/guard raid` | تفعيل/تعطيل تنبيهات دخول الأعضاء بسرعة |
+| `/guard status` | عرض إعدادات الحماية |
+| `/guard clearlogs` | إلغاء قناة Logs |
+
+## 4) مثال إعداد الحماية
+
+بعد ما تعمل قناة مثلاً `#mod-logs`:
+
+```text
+/guard logs channel:#mod-logs
+/guard antispam enabled:True
+/guard links enabled:True
+/guard raid enabled:True
+```
+
+التلات خصائص بيكونوا **OFF افتراضيًا**. إعداداتهم بتتحفظ حتى بعد Restart.
+
+### تفاصيل الحماية
+
+- **Anti-spam:** لو العضو أرسل 7 رسائل في 8 ثوانٍ، أو كرر نفس الرسالة 4 مرات في 12 ثانية، أو عمل Mention لـ 8 أعضاء في رسالة، البوت يحاول يحذف الرسالة ويعمل Timeout لمدة 10 دقايق. أصحاب صلاحية Manage Messages في نفس القناة مستثنين.
+- **Invite filter:** حذف رسائل روابط دعوات Discord، مش كل الروابط.
+- **Raid detection:** لو 8 أعضاء دخلوا في 20 ثانية، يبعت تنبيه في قناة Logs؛ **مش هيعمل Ban أو Kick تلقائيًا**.
+
+## 5) Permissions Panel
+
+اكتب `/permissions` واختار أي Role من القائمة. هتشوف الصلاحيات بتاعته بأسماء الـ Permissions، ومين Enabled ومين Disabled، والتنقل بصفحات. زر **Search Permission** يفتح مربع كتابة؛ اكتب مثلاً `ban_members` أو `manage_roles`، وهتلاقي كل الرولات اللي عندها الصلاحية دي بشكل مباشر أو عن طريق Administrator.
+
+**مهم:** المعروض هو صلاحيات الـ Role الأساسية على مستوى السيرفر. الصلاحيات الفعلية لعضو ممكن تختلف بسبب رولات تانية أو Channel Overrides.
+
+## 6) ملاحظات
+
+- البوت مش هيقدر يعمل Moderation لعضو أعلى منه أو أعلى من الشخص اللي استخدم الأمر.
+- صلاحيات البوت مش المفروض تكون Administrator إلا لو عندك سبب حقيقي.
+- ده **بوت شغال بالكود بعد ربطه وتشغيله**؛ مش موقع Dashboard خارجي، ومش Bot مستضاف عند Discord تلقائيًا.
+- اختبر الحماية على سيرفر خاص الأول؛ thresholds قابلة للتعديل من ملف `sentinel/guard.py`.
+- لو قفلت البرنامج، البوت هيقف. التشغيل الدائم يحتاج جهاز شغال طول الوقت أو VPS/Hosting.
+
+المشروع فيه ملف `README.md` بالإنجليزي، وملفات Docker للتشغيل على استضافة تدعم Docker.
