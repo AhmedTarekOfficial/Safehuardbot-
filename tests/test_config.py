@@ -93,6 +93,23 @@ class SettingsStoreTests(unittest.TestCase):
             self.assertFalse(reopened.remove_shortcut(77, "اص"))
             reopened.close()
 
+    def test_shortcuts_are_globally_enabled_by_default_and_can_be_restricted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "scope.db"
+            db = SettingsStore(path)
+            self.assertTrue(db.get(50).shortcuts_enabled)
+            self.assertIsNone(db.get(50).shortcut_channel_id)
+            db.update(50, shortcut_channel_id=123, shortcuts_enabled=True)
+            db.update(50, shortcuts_enabled=False)
+            self.assertFalse(db.get(50).shortcuts_enabled)
+            self.assertEqual(db.get(50).shortcut_channel_id, 123)
+            db.update(50, shortcuts_enabled=True, shortcut_channel_id=None)
+            db.close()
+            reopened = SettingsStore(path)
+            self.assertTrue(reopened.get(50).shortcuts_enabled)
+            self.assertIsNone(reopened.get(50).shortcut_channel_id)
+            reopened.close()
+
     def test_migration_preserves_existing_guild_settings(self):
         import sqlite3
         with tempfile.TemporaryDirectory() as tmp:
@@ -113,6 +130,8 @@ class SettingsStoreTests(unittest.TestCase):
             self.assertTrue(store.get(9).raid)
             self.assertEqual(store.get(9).log_channel_id, 321)
             self.assertEqual(store.get(9).language, "en")
+            self.assertTrue(store.get(9).shortcuts_enabled)
+            self.assertIsNone(store.get(9).shortcut_channel_id)
             self.assertEqual(store.shortcuts_for(9), {})
             store.close()
 
