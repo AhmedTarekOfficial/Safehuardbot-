@@ -124,6 +124,86 @@ class Moderation(commands.Cog):
         await log_action(interaction.guild, self.bot.store, "Timeout removed",
                          f"Member: {member} (`{member.id}`)\nBy: {interaction.user}\nReason: {reason}")
 
+    @app_commands.command(name="mute", description="Text-mute a member using Discord Timeout")
+    @app_commands.guild_only()
+    @app_commands.default_permissions(moderate_members=True)
+    @app_commands.checks.has_permissions(moderate_members=True)
+    @app_commands.checks.bot_has_permissions(moderate_members=True)
+    @app_commands.describe(minutes="Text mute duration in minutes (1 to 40320)")
+    async def mute(self, interaction: discord.Interaction, member: discord.Member,
+                   minutes: app_commands.Range[int, 1, 40320] = 10, reason: str = "No reason"):
+        await interaction.response.defer(ephemeral=True)
+        if not await self.check_member(interaction, member, for_timeout=True):
+            return
+        await member.timeout(timedelta(minutes=minutes), reason=audit_reason(interaction.user, reason))
+        await reply(interaction, bilingual(
+            self.bot, interaction,
+            f"Text-muted **{discord.utils.escape_markdown(str(member))}** for **{minutes} minutes**.",
+            f"تم عمل ميوت كتابي للعضو **{discord.utils.escape_markdown(str(member))}** لمدة **{minutes} دقيقة**.",
+        ))
+        await log_action(interaction.guild, self.bot.store, "Text mute",
+                         f"Member: {member} (`{member.id}`)\nBy: {interaction.user}\nMinutes: {minutes}\nReason: {reason}")
+
+    @app_commands.command(name="unmute", description="Remove a member's text mute (Timeout)")
+    @app_commands.guild_only()
+    @app_commands.default_permissions(moderate_members=True)
+    @app_commands.checks.has_permissions(moderate_members=True)
+    @app_commands.checks.bot_has_permissions(moderate_members=True)
+    async def unmute(self, interaction: discord.Interaction, member: discord.Member, reason: str = "No reason"):
+        await interaction.response.defer(ephemeral=True)
+        if not await self.check_member(interaction, member, for_timeout=True):
+            return
+        await member.timeout(None, reason=audit_reason(interaction.user, reason))
+        await reply(interaction, bilingual(
+            self.bot, interaction,
+            f"Removed text mute from **{discord.utils.escape_markdown(str(member))}**.",
+            f"تم فك الميوت الكتابي من **{discord.utils.escape_markdown(str(member))}**.",
+        ))
+        await log_action(interaction.guild, self.bot.store, "Text unmute",
+                         f"Member: {member} (`{member.id}`)\nBy: {interaction.user}\nReason: {reason}")
+
+    @app_commands.command(name="vmute", description="Server-mute a member who is in a voice channel")
+    @app_commands.guild_only()
+    @app_commands.default_permissions(mute_members=True)
+    @app_commands.checks.has_permissions(mute_members=True)
+    @app_commands.checks.bot_has_permissions(mute_members=True)
+    async def vmute(self, interaction: discord.Interaction, member: discord.Member, reason: str = "No reason"):
+        await interaction.response.defer(ephemeral=True)
+        if not await self.check_member(interaction, member):
+            return
+        if not member.voice or not member.voice.channel:
+            await reply(interaction, bilingual(self.bot, interaction,
+                "This member isn't connected to a voice channel.",
+                "العضو مش موجود في روم صوتي دلوقتي."))
+            return
+        await member.edit(mute=True, reason=audit_reason(interaction.user, reason))
+        await reply(interaction, bilingual(self.bot, interaction,
+            f"Voice-muted **{discord.utils.escape_markdown(str(member))}**.",
+            f"تم كتم مايك **{discord.utils.escape_markdown(str(member))}**."))
+        await log_action(interaction.guild, self.bot.store, "Voice mute",
+                         f"Member: {member} (`{member.id}`)\nBy: {interaction.user}\nReason: {reason}")
+
+    @app_commands.command(name="vunmute", description="Remove a member's server voice mute")
+    @app_commands.guild_only()
+    @app_commands.default_permissions(mute_members=True)
+    @app_commands.checks.has_permissions(mute_members=True)
+    @app_commands.checks.bot_has_permissions(mute_members=True)
+    async def vunmute(self, interaction: discord.Interaction, member: discord.Member, reason: str = "No reason"):
+        await interaction.response.defer(ephemeral=True)
+        if not await self.check_member(interaction, member):
+            return
+        if not member.voice or not member.voice.channel:
+            await reply(interaction, bilingual(self.bot, interaction,
+                "This member isn't connected to a voice channel.",
+                "العضو مش موجود في روم صوتي دلوقتي."))
+            return
+        await member.edit(mute=False, reason=audit_reason(interaction.user, reason))
+        await reply(interaction, bilingual(self.bot, interaction,
+            f"Removed voice mute from **{discord.utils.escape_markdown(str(member))}**.",
+            f"تم فك كتم المايك عن **{discord.utils.escape_markdown(str(member))}**."))
+        await log_action(interaction.guild, self.bot.store, "Voice unmute",
+                         f"Member: {member} (`{member.id}`)\nBy: {interaction.user}\nReason: {reason}")
+
     @app_commands.command(description="Delete recent messages from the current channel")
     @app_commands.guild_only()
     @app_commands.default_permissions(manage_messages=True)
