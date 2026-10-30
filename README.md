@@ -141,3 +141,16 @@ Available actions: `timeout`, `untimeout`, `kick`, `ban`, `purge`, `antispam_on/
 A `purge` shortcut uses a number of messages as its argument; guard toggles take no arguments.
 Staff and bot Discord permissions, target hierarchy, channel scoping, rate limiting, and exact first-word matching are checked on each command. Shortcuts remain disabled until a channel is configured. Enable Message Content Intent in Developer Portal. SQLite migrations preserve existing guard settings, with new language and shortcuts tables.
 
+## 2026-10: Shortcuts now default to server-wide
+
+Previously no-prefix commands were silently disabled until a staff channel was selected. This is fixed: a null shortcut channel now means **all guild text channels**. Existing explicit restrictions remain until changed with `/shortcut anywhere`. Users still require the specific Discord permissions and sufficient role hierarchy; actions can only occur where the bot can see and respond.
+
+- `/shortcut anywhere`: allow shortcuts in every channel (default).
+- `/shortcut channel`: optionally restrict to one channel.
+- `/shortcut disable`: pause shortcut processing without deleting mappings.
+- `/shortcut diagnose`: inspect effective scope, current channel and whether the bot can see/reply.
+- `/shortcut set`, `/shortcut list`, `/shortcut remove`: manage mappings.
+
+New commands: `/mute` / `/unmute` apply and remove text Timeout, while `/vmute` / `/vunmute` use Discord's server voice mute for a member currently connected to voice. Shortcut aliases support `mute`, `unmute`, `vmute`, and `vunmute` alongside existing actions.
+
+Example: `/shortcut set word:اص action:mute` followed by `اص @member 10` or replying `اص 10`. Make sure the privileged Message Content Intent is enabled, and do not choose common chat words as aliases.
