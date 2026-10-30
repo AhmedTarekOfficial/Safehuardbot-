@@ -8,6 +8,7 @@ from discord import app_commands
 from discord.ext import commands
 
 from .common import log_action, reply, target_error
+from .i18n import tr, lang, decorate
 
 INVITE_PATTERN = re.compile(r"(?i)(?:https?://)?(?:www\.)?(?:discord\.gg/|discord(?:app)?\.com/invite/)[a-z0-9-]+")
 SPAM_WINDOW = 8.0
@@ -42,19 +43,26 @@ class Guard(commands.GroupCog, group_name="guard", group_description="Configure 
     @app_commands.checks.has_permissions(manage_guild=True)
     async def antispam(self, interaction: discord.Interaction, enabled: bool):
         self.bot.store.update(interaction.guild_id, antispam=enabled)
-        await reply(interaction, f"Anti-spam is now **{'ON' if enabled else 'OFF'}**.")
+        language = lang(self.bot.store, interaction.guild_id)
+        await reply(interaction, tr(language, "guard_updated",
+                                    name=tr(language, "spam"), state=tr(language, "on" if enabled else "off")))
 
     @app_commands.command(description="Enable or disable deletion of Discord invite links")
     @app_commands.checks.has_permissions(manage_guild=True)
     async def links(self, interaction: discord.Interaction, enabled: bool):
         self.bot.store.update(interaction.guild_id, links=enabled)
-        await reply(interaction, f"Invite link protection is now **{'ON' if enabled else 'OFF'}**.")
+        language = lang(self.bot.store, interaction.guild_id)
+        await reply(interaction, tr(language, "guard_updated",
+                                    name=tr(language, "links"), state=tr(language, "on" if enabled else "off")))
 
     @app_commands.command(description="Enable or disable join-spike (raid) alerts")
     @app_commands.checks.has_permissions(manage_guild=True)
     async def raid(self, interaction: discord.Interaction, enabled: bool):
         self.bot.store.update(interaction.guild_id, raid=enabled)
-        await reply(interaction, f"Raid alerts are now **{'ON' if enabled else 'OFF'}**. This is alert-only, not automatic bans.")
+        language = lang(self.bot.store, interaction.guild_id)
+        await reply(interaction, tr(language, "guard_updated",
+                                    name=tr(language, "raid"), state=tr(language, "on" if enabled else "off")) +
+                                    "\n" + tr(language, "raid_note"))
 
     @app_commands.command(description="Set the channel that receives moderation and guard events")
     @app_commands.checks.has_permissions(manage_guild=True)
@@ -63,27 +71,45 @@ class Guard(commands.GroupCog, group_name="guard", group_description="Configure 
         me = interaction.guild.me or await interaction.guild.fetch_member(self.bot.user.id)
         perms = channel.permissions_for(me)
         if not (perms.view_channel and perms.send_messages and perms.embed_links):
-            await reply(interaction, "I need View Channel, Send Messages, and Embed Links in that channel.")
+            await reply(interaction, tr(lang(self.bot.store, interaction.guild_id), "logs_perms"))
             return
         self.bot.store.update(interaction.guild_id, log_channel_id=channel.id)
-        await reply(interaction, f"Logs will be posted in {channel.mention}.")
+        await reply(interaction, tr(lang(self.bot.store, interaction.guild_id), "logs_saved", channel=channel.mention))
 
     @app_commands.command(description="Turn off moderation and guard logs")
     @app_commands.checks.has_permissions(manage_guild=True)
     async def clearlogs(self, interaction: discord.Interaction):
         self.bot.store.update(interaction.guild_id, log_channel_id=None)
-        await reply(interaction, "Logging channel removed.")
+        await reply(interaction, tr(lang(self.bot.store, interaction.guild_id), "logs_clear"))
 
     @app_commands.command(description="See current guard settings")
     @app_commands.checks.has_permissions(manage_guild=True)
     async def status(self, interaction: discord.Interaction):
         c = self.bot.store.get(interaction.guild_id)
-        embed = discord.Embed(title="Sentinel Guard — Settings", color=discord.Color.blurple())
-        embed.add_field(name="Anti-spam", value="ON" if c.antispam else "OFF")
-        embed.add_field(name="Invite links", value="ON" if c.links else "OFF")
-        embed.add_field(name="Raid alerts", value="ON (alert-only)" if c.raid else "OFF")
-        embed.add_field(name="Log channel", value=f"<#{c.log_channel_id}>" if c.log_channel_id else "Not configured", inline=False)
-        await reply(interaction, embed=embed)
+        language = c.language
+        enabled_count = sum((c.antispam, c.links, c.raid))
+        embed = discord.Embed(
+            title=tr(language, "guard_title"),
+            description=tr(language, "guard_desc") +
+            "\n━━━━━━━━━━━━━━━━━━━━\n" +
+            ("▰" * enabled_count) + ("▱" * (3 - enabled_count)) + f"   {enabled_count}/3",
+            color=discord.Color.from_rgb(46, 184, 148) if enabled_count else discord.Color.from_rgb(221, 153, 75),
+        )
+        for name, enabled in (
+            ("spam", c.antispam), ("links", c.links), ("raid", c.raid)
+        ):
+            embed.add_field(
+                name=f"{'🟢' if enabled else '⚫'}  {tr(language, name)}",
+                value=tr(language, "on" if enabled else "off"),
+                inline=True,
+            )
+        embed.add_field(
+            name="📋  " + tr(language, "logs"),
+            value=f"<#{c.log_channel_id}>" if c.log_channel_id else tr(language, "not_set"),
+            inline=False,
+        )
+        embed.add_field(name="ℹ️", value=tr(language, "raid_note"), inline=False)
+        await reply(interaction, embed=decorate(embed, interaction.guild))
 
     @commands.Cog.listener()
     async def on_message(self, message: discord.Message):
