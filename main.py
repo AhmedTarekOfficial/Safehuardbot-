@@ -17,6 +17,7 @@ from sentinel.moderation import Moderation, Roles
 from sentinel.panel import PermissionsCog
 from sentinel.shortcuts import Shortcuts
 from sentinel.dashboard import HelpView, LanguageView
+from sentinel.broadcast import Broadcast, Announcements, SubscriptionView
 from sentinel.i18n import tr, lang
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -34,8 +35,11 @@ class SentinelBot(commands.Bot):
         self.store = SettingsStore()
 
     async def setup_hook(self):
-        for cog in (Moderation(self), Roles(self), Guard(self), PermissionsCog(self), Shortcuts(self)):
+        for cog in (Moderation(self), Roles(self), Guard(self), PermissionsCog(self), Shortcuts(self),
+                    Broadcast(self), Announcements(self)):
             await self.add_cog(cog)
+        # Persistent subscription controls continue working on messages after bot restarts.
+        self.add_view(SubscriptionView(self))
         guild_id = os.getenv("DEV_GUILD_ID", "").strip()
         if guild_id:
             if not guild_id.isdecimal():
