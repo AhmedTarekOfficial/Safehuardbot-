@@ -94,8 +94,10 @@ class ShortcutDispatchTests(unittest.IsolatedAsyncioTestCase):
         member.voice = SimpleNamespace(channel=voice_channel)
         member.edit = AsyncMock()
         self.cog.target_for = AsyncMock(return_value=member)
-        with patch("sentinel.shortcuts.target_error", return_value=None), \\
-             patch("sentinel.shortcuts.log_action", new_callable=AsyncMock):
+        with (
+            patch("sentinel.shortcuts.target_error", return_value=None),
+            patch("sentinel.shortcuts.log_action", new_callable=AsyncMock),
+        ):
             await self.cog.on_message(msg)
         member.edit.assert_awaited_once()
         self.assertTrue(member.edit.await_args.kwargs["mute"])
