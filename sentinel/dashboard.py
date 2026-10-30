@@ -19,6 +19,7 @@ class HelpView(discord.ui.View):
             ("overview", self.home_button), ("moderation", self.moderation_button),
             ("protection", self.protection_button), ("roles", self.roles_button),
             ("shortcuts", self.shortcuts_button), ("language", self.language_button),
+            ("broadcast", self.broadcast_button),
         ):
             button.label = tr(language, key)
 
@@ -41,6 +42,9 @@ class HelpView(discord.ui.View):
         embed.add_field(name="🛡️ Shield", value=f"`{shield}/3`", inline=True)
         embed.add_field(name="🌐 UI", value="العربية" if language == "ar" else "English", inline=True)
         embed.add_field(name="⚡ Quick Actions", value=str(len(self.bot.store.shortcuts_for(self.guild.id))), inline=True)
+        broadcast = self.bot.get_cog("Broadcast")
+        if broadcast is not None:
+            embed.add_field(name="📬 Subscribers", value=str(broadcast.state.count(self.guild.id)), inline=True)
         return decorate(embed, self.guild, footer=tr(language, "footer"))
 
     async def change(self, interaction, section: str):
@@ -74,6 +78,10 @@ class HelpView(discord.ui.View):
             return
         panel = LanguageView(self.bot, self.guild, self.opener_id)
         await interaction.response.send_message(embed=panel.render(), view=panel, ephemeral=True)
+
+    @discord.ui.button(label="Broadcast", emoji="📬", style=discord.ButtonStyle.secondary, row=2)
+    async def broadcast_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        await self.change(interaction, "broadcast")
 
 
 class LanguageSelect(discord.ui.Select):
