@@ -165,8 +165,6 @@ class Moderation(commands.Cog):
     @app_commands.command(name="vmute", description="Server-mute a member who is in a voice channel")
     @app_commands.guild_only()
     @app_commands.default_permissions(mute_members=True)
-    @app_commands.checks.has_permissions(mute_members=True)
-    @app_commands.checks.bot_has_permissions(mute_members=True)
     async def vmute(self, interaction: discord.Interaction, member: discord.Member, reason: str = "No reason"):
         await interaction.response.defer(ephemeral=True)
         if not await self.check_member(interaction, member):
@@ -175,6 +173,18 @@ class Moderation(commands.Cog):
             await reply(interaction, bilingual(self.bot, interaction,
                 "This member isn't connected to a voice channel.",
                 "العضو مش موجود في روم صوتي دلوقتي."))
+            return
+        voice_channel = member.voice.channel
+        me = await self.bot_member(interaction.guild)
+        if not voice_channel.permissions_for(interaction.user).mute_members:
+            await reply(interaction, bilingual(self.bot, interaction,
+                "You need Mute Members permission in the member's voice channel.",
+                "محتاج صلاحية Mute Members في الروم الصوتي بتاع العضو."))
+            return
+        if not voice_channel.permissions_for(me).mute_members:
+            await reply(interaction, bilingual(self.bot, interaction,
+                "The bot needs Mute Members in that voice channel.",
+                "البوت محتاج صلاحية Mute Members في الروم الصوتي ده."))
             return
         await member.edit(mute=True, reason=audit_reason(interaction.user, reason))
         await reply(interaction, bilingual(self.bot, interaction,
@@ -186,8 +196,6 @@ class Moderation(commands.Cog):
     @app_commands.command(name="vunmute", description="Remove a member's server voice mute")
     @app_commands.guild_only()
     @app_commands.default_permissions(mute_members=True)
-    @app_commands.checks.has_permissions(mute_members=True)
-    @app_commands.checks.bot_has_permissions(mute_members=True)
     async def vunmute(self, interaction: discord.Interaction, member: discord.Member, reason: str = "No reason"):
         await interaction.response.defer(ephemeral=True)
         if not await self.check_member(interaction, member):
@@ -196,6 +204,18 @@ class Moderation(commands.Cog):
             await reply(interaction, bilingual(self.bot, interaction,
                 "This member isn't connected to a voice channel.",
                 "العضو مش موجود في روم صوتي دلوقتي."))
+            return
+        voice_channel = member.voice.channel
+        me = await self.bot_member(interaction.guild)
+        if not voice_channel.permissions_for(interaction.user).mute_members:
+            await reply(interaction, bilingual(self.bot, interaction,
+                "You need Mute Members permission in the member's voice channel.",
+                "محتاج صلاحية Mute Members في الروم الصوتي بتاع العضو."))
+            return
+        if not voice_channel.permissions_for(me).mute_members:
+            await reply(interaction, bilingual(self.bot, interaction,
+                "The bot needs Mute Members in that voice channel.",
+                "البوت محتاج صلاحية Mute Members في الروم الصوتي ده."))
             return
         await member.edit(mute=False, reason=audit_reason(interaction.user, reason))
         await reply(interaction, bilingual(self.bot, interaction,
