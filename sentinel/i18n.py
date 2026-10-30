@@ -1,0 +1,77 @@
+"""Arabic/English language strings for the server-wide interface."""
+TEXT={
+"en":{
+"home":"SENTINEL  •  CONTROL CENTER","welcome":"A private command center for staff.\nSelect a section below to explore commands and settings.",
+"overview":"Overview","moderation":"Moderation","protection":"Protection","roles":"Roles","shortcuts":"Shortcuts","language":"Language",
+"overview_text":"**⚖️ Moderation** — Kick, ban, timeout, clear messages\n**🛡️ Shield** — Anti-spam, invite filter, raid alerts\n**🎭 Roles** — Assign roles and inspect permissions\n**⚡ Shortcuts** — Custom no-prefix staff commands",
+"moderation_text":"`/kick` • `/ban` • `/unban`\n`/timeout` • `/untimeout` • `/purge`\n\nCommands require permissions and role hierarchy checks.",
+"protection_text":"`/guard status` • `/guard antispam` • `/guard links`\n`/guard raid` • `/guard logs` • `/guard clearlogs`\n\nRaid detection sends alerts; never auto-bans.",
+"roles_text":"`/role add` • `/role remove`\n`/permissions` opens the interactive permission explorer.",
+"shortcuts_text":"`/shortcut channel` — choose a staff channel\n`/shortcut set` — assign a word to a command\n`/shortcut list` • `/shortcut remove`\n\nExample: map `اص` to `timeout`, then reply to a member with `اص 10` or type `اص @member 10`.",
+"language_text":"Use `/language` to choose Arabic or English for this server.",
+"footer":"SENTINEL • Private staff dashboard",
+"lang_title":"🌐  LANGUAGE SETTINGS","lang_desc":"Choose the interface language for everyone in this server.\nCurrent language: **English**",
+"lang_saved":"Server language updated to **English**.","lang_need":"Manage Server permission is required.","private":"Only the member who opened this panel can use it.",
+"perm_title":"🔍  ROLE PERMISSIONS","perm_overview":"**{count} roles** — select a role or search for a specific permission.\nThese are role-level flags, not channel overrides.",
+"perm_role":"🎭  {name}","perm_role_intro":"Role ID: `{id}`  •  **{count}** enabled flags\nAdministrator bypasses most checks. Other roles and channel overrides can change effective access.\n\n{rows}",
+"perm_search":"🔎  {name}","perm_search_intro":"**{count} roles** grant this permission directly or by Administrator.\n\n{rows}",
+"none":"No matches.","direct":"Direct","admin":"Administrator","page":"Page {page}/{total} • 10 minute panel",
+"select_role":"Select a role to inspect","all_roles":"All roles","search_perm":"Search permission","previous":"Previous","next":"Next",
+"modal_title":"Find permission","modal_label":"Permission name","search_unknown":"Unknown permission: `{name}`.","search_many":"Multiple matches; try an exact name:\n{names}",
+"guard_title":"🛡️  SHIELD STATUS","guard_desc":"Live protection configuration",
+"spam":"Anti-spam","links":"Invite links","raid":"Raid alerts","logs":"Log channel","on":"ENABLED","off":"DISABLED","not_set":"Not configured",
+"raid_note":"Raid protection is alert-only.","guard_updated":"**{name}** is now **{state}**.","logs_saved":"Logs set to {channel}.","logs_clear":"Log channel cleared.","logs_perms":"I need View Channel, Send Messages and Embed Links in that channel.",
+"short_title":"⚡  QUICK COMMANDS","short_desc":"Messages without / or prefixes. Only available in your configured staff channel; permissions are always checked.",
+"short_chan":"Staff channel","short_empty":"No shortcuts configured.","short_required":"First configure a staff-only channel with `/shortcut channel`.",
+"short_chan_saved":"Quick commands now work only in {channel}.","short_set":"Shortcut `{word}` runs `{action}`.","short_removed":"Removed shortcut `{word}`.","short_missing":"No shortcut called `{word}`.",
+"short_invalid":"Use one word of 2–24 letters or digits; no spaces, /, or mentions.","short_limit":"Maximum 25 shortcuts per server.",
+"short_target":"Reply to a member or mention them. Example: `{word} @member 10`","short_minutes":"Choose 1–40320 minutes.","short_amount":"Choose 1–100 messages.",
+"short_denied":"You lack permission to run this action.","short_bot_denied":"The bot lacks required permissions.","short_done":"Completed **{action}** for {actor}.","short_failed":"Action failed; check permissions and role hierarchy.",
+"missing_user":"You lack the required Discord permissions.","missing_bot":"The bot lacks required permissions.","command_failed":"Action failed; review permissions or the bot logs.",
+},
+"ar":{
+"home":"SENTINEL  •  مركز التحكم","welcome":"لوحة تحكم خاصة بفريق الإدارة.\nاختار القسم اللي عايز تتعامل معاه من الأزرار.",
+"overview":"الرئيسية","moderation":"الإدارة","protection":"الحماية","roles":"الرولات","shortcuts":"الاختصارات","language":"اللغة",
+"overview_text":"**⚖️ الإدارة** — طرد وحظر وتايم أوت وحذف رسائل\n**🛡️ الحماية** — منع سبام وروابط دعوة وتنبيهات Raid\n**🎭 الرولات** — إدارة الرولات وفحص صلاحياتها\n**⚡ الاختصارات** — أوامر بكلمة من غير علامة",
+"moderation_text":"`/kick` • `/ban` • `/unban`\n`/timeout` • `/untimeout` • `/purge`\n\nكل أمر بيتحقق من الصلاحيات وترتيب الرولات.",
+"protection_text":"`/guard status` • `/guard antispam` • `/guard links`\n`/guard raid` • `/guard logs` • `/guard clearlogs`\n\nRaid بيبعت تنبيه فقط، من غير Ban تلقائي.",
+"roles_text":"`/role add` • `/role remove`\nافتح `/permissions` لمراجعة صلاحيات الرولات.",
+"shortcuts_text":"`/shortcut channel` — تحديد قناة الإدارة\n`/shortcut set` — ربط كلمة بأمر\n`/shortcut list` • `/shortcut remove`\n\nمثال: اربط `اص` بـ `timeout`، وبعدين رد على رسالة عضو بـ `اص 10` أو اكتب `اص @member 10`.",
+"language_text":"افتح `/language` للتبديل بين العربي والإنجليزي للسيرفر.",
+"footer":"SENTINEL • لوحة إدارة خاصة",
+"lang_title":"🌐  إعدادات اللغة","lang_desc":"اختار لغة واجهات البوت لكل أعضاء السيرفر.\nاللغة الحالية: **العربية**",
+"lang_saved":"تم تغيير لغة السيرفر إلى **العربية**.","lang_need":"محتاج صلاحية Manage Server.","private":"اللوحة دي خاصة بالشخص اللي فتحها.",
+"perm_title":"🔍  مستكشف الصلاحيات","perm_overview":"**{count} رول** — اختار رول أو ابحث عن صلاحية محددة.\nالمعروض صلاحيات الرول الأساسية، مش صلاحيات القنوات.",
+"perm_role":"🎭  {name}","perm_role_intro":"Role ID: `{id}`  •  **{count}** صلاحية مفعلة\nAdministrator بيتجاوز أغلب القيود. باقي رولات العضو وإعدادات القنوات بتأثر على صلاحياته.\n\n{rows}",
+"perm_search":"🔎  {name}","perm_search_intro":"**{count} رول** عندهم الصلاحية مباشرة أو من Administrator.\n\n{rows}",
+"none":"مفيش نتائج.","direct":"مباشر","admin":"Administrator","page":"صفحة {page}/{total} • لوحة لمدة 10 دقائق",
+"select_role":"اختار رول لفحصه","all_roles":"كل الرولات","search_perm":"بحث عن صلاحية","previous":"السابق","next":"التالي",
+"modal_title":"البحث عن صلاحية","modal_label":"اسم الصلاحية","search_unknown":"مش لاقي الصلاحية: `{name}`.","search_many":"فيه أكتر من نتيجة، استخدم اسم أدق:\n{names}",
+"guard_title":"🛡️  حالة الحماية","guard_desc":"إعدادات الحماية الحالية",
+"spam":"منع السبام","links":"روابط الدعوة","raid":"تنبيهات Raid","logs":"قناة اللوج","on":"مفعّل","off":"متوقف","not_set":"مش متحددة",
+"raid_note":"Raid بيبعت تنبيهات بس.","guard_updated":"تم تغيير **{name}** إلى **{state}**.","logs_saved":"قناة اللوج بقت {channel}.","logs_clear":"تم إلغاء قناة اللوج.","logs_perms":"محتاج صلاحيات View Channel وSend Messages وEmbed Links في القناة.",
+"short_title":"⚡  الأوامر السريعة","short_desc":"اكتب الكلمة مباشرة من غير /. الاختصارات بتشتغل فقط في قناة الإدارة وبعد التحقق من الصلاحيات.",
+"short_chan":"قناة الإدارة","short_empty":"لسه مفيش اختصارات.","short_required":"حدد قناة للإدارة الأول باستخدام `/shortcut channel`.",
+"short_chan_saved":"الاختصارات هتشتغل فقط في {channel}.","short_set":"الاختصار `{word}` بينفذ `{action}`.","short_removed":"تم حذف الاختصار `{word}`.","short_missing":"مفيش اختصار اسمه `{word}`.",
+"short_invalid":"اكتب كلمة واحدة من 2 لـ24 حرف أو رقم من غير مسافات أو / أو منشن.","short_limit":"الحد الأقصى 25 اختصار لكل سيرفر.",
+"short_target":"اعمل Reply على عضو أو اعمله Mention. مثال: `{word} @member 10`","short_minutes":"المدة من 1 لـ40320 دقيقة.","short_amount":"العدد من 1 لـ100 رسالة.",
+"short_denied":"معندكش الصلاحية المطلوبة.","short_bot_denied":"البوت معندوش الصلاحيات المطلوبة.","short_done":"تم تنفيذ **{action}** بواسطة {actor}.","short_failed":"العملية فشلت؛ راجع الصلاحيات وترتيب الرولات.",
+"missing_user":"معندكش صلاحيات Discord المطلوبة.","missing_bot":"البوت معندوش الصلاحيات المطلوبة.","command_failed":"فشل التنفيذ؛ راجع الصلاحيات أو Logs البوت.",
+}
+}
+
+
+def tr(lang: str, key: str, **values) -> str:
+    template = TEXT.get(lang, TEXT["en"]).get(key, TEXT["en"].get(key, key))
+    return template.format(**values) if values else template
+
+
+def lang(store, guild_id: int | None) -> str:
+    return store.get(guild_id).language if guild_id else "en"
+
+
+def decorate(embed, guild=None, footer: str = "SENTINEL • MANAGEMENT"):
+    if guild and getattr(guild, "icon", None):
+        embed.set_thumbnail(url=guild.icon.url)
+    embed.set_footer(text=footer)
+    return embed
