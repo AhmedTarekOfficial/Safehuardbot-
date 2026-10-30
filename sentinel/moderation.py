@@ -26,7 +26,8 @@ class Moderation(commands.Cog):
     async def check_member(self, interaction: discord.Interaction, member: discord.Member,
                            *, for_timeout: bool = False) -> bool:
         me = await self.bot_member(interaction.guild)
-        error = target_error(interaction.user, member, me, for_timeout=for_timeout)
+        error = target_error(interaction.user, member, me, for_timeout=for_timeout,
+                             language=lang(self.bot.store, interaction.guild_id))
         if error:
             await reply(interaction, error)
             return False
@@ -151,9 +152,9 @@ class Roles(commands.GroupCog, group_name="role", group_description="Give and re
 
     async def validate(self, interaction, member, role):
         me = interaction.guild.me or await interaction.guild.fetch_member(self.bot.user.id)
-        error = role_error(interaction.user, me, role)
+        error = role_error(interaction.user, me, role, language=lang(self.bot.store, interaction.guild_id))
         if not error:
-            error = target_error(interaction.user, member, me)
+            error = target_error(interaction.user, member, me, language=lang(self.bot.store, interaction.guild_id))
         if error:
             await reply(interaction, error)
             return False
