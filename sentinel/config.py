@@ -36,6 +36,7 @@ class GuildSettings:
     log_channel_id: int | None = None
     language: str = "en"
     shortcut_channel_id: int | None = None
+    shortcuts_enabled: bool = True
 
 
 class SettingsStore:
@@ -58,6 +59,8 @@ class SettingsStore:
             self.connection.execute("ALTER TABLE guild_settings ADD COLUMN language TEXT NOT NULL DEFAULT 'en'")
         if "shortcut_channel_id" not in columns:
             self.connection.execute("ALTER TABLE guild_settings ADD COLUMN shortcut_channel_id INTEGER")
+        if "shortcuts_enabled" not in columns:
+            self.connection.execute("ALTER TABLE guild_settings ADD COLUMN shortcuts_enabled INTEGER NOT NULL DEFAULT 1")
         self.connection.execute("""CREATE TABLE IF NOT EXISTS guild_shortcuts (
             guild_id INTEGER NOT NULL,
             word TEXT NOT NULL,
@@ -66,12 +69,13 @@ class SettingsStore:
         )""")
         self.connection.commit()
         self.cache: dict[int, GuildSettings] = {}
-        for guild_id, antispam, links, raid, log_channel_id, language, shortcut_channel_id in self.connection.execute(
-            "SELECT guild_id, antispam, links, raid, log_channel_id, language, shortcut_channel_id FROM guild_settings"
+        for guild_id, antispam, links, raid, log_channel_id, language, shortcut_channel_id, shortcuts_enabled in self.connection.execute(
+            "SELECT guild_id, antispam, links, raid, log_channel_id, language, shortcut_channel_id, shortcuts_enabled FROM guild_settings"
         ):
             self.cache[guild_id] = GuildSettings(
                 bool(antispam), bool(links), bool(raid), log_channel_id,
-                language if language in ("en", "ar") else "en", shortcut_channel_id
+                language if language in ("en", "ar") else "en", shortcut_channel_id,
+                bool(shortcuts_enabled)
             )
 
     def get(self, guild_id: int) -> GuildSettings:
@@ -79,7 +83,7 @@ class SettingsStore:
 
     def update(self, guild_id: int, **changes) -> GuildSettings:
         before = self.get(guild_id)
-        fields = {"antispam", "links", "raid", "log_channel_id", "language", "shortcut_channel_id"}
+        fields = {"antispam", "links", "raid", "log_channel_id", "language", "shortcut_channel_id", "shortcuts_enabled"}
         if not changes.keys() <= fields:
             raise ValueError("Invalid settings field")
         if "language" in changes and changes["language"] not in ("en", "ar"):
@@ -89,18 +93,19 @@ class SettingsStore:
         updated = GuildSettings(**data)
         self.connection.execute(
             """INSERT INTO guild_settings
-               (guild_id, antispam, links, raid, log_channel_id, language, shortcut_channel_id)
-               VALUES (?, ?, ?, ?, ?, ?, ?)
+               (guild_id, antispam, links, raid, log_channel_id, language, shortcut_channel_id, shortcuts_enabled)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(guild_id) DO UPDATE SET
                    antispam=excluded.antispam,
                    links=excluded.links,
                    raid=excluded.raid,
                    log_channel_id=excluded.log_channel_id,
                    language=excluded.language,
-                   shortcut_channel_id=excluded.shortcut_channel_id""",
+                   shortcut_channel_id=excluded.shortcut_channel_id,
+                   shortcuts_enabled=excluded.shortcuts_enabled""",
             (guild_id, int(updated.antispam), int(updated.links),
              int(updated.raid), updated.log_channel_id, updated.language,
-             updated.shortcut_channel_id),
+             updated.shortcut_channel_id, int(updated.shortcuts_enabled)),
         )
         self.connection.commit()
         self.cache[guild_id] = updated
