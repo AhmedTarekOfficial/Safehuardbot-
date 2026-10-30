@@ -1,6 +1,7 @@
 """Text-only mutes via channel permission overrides, never via Discord Timeout."""
 from __future__ import annotations
 
+import json
 import logging
 from datetime import datetime, timedelta, timezone
 
@@ -55,6 +56,15 @@ class TextMute(commands.Cog):
                 member_id INTEGER NOT NULL,
                 expires_at INTEGER NOT NULL,
                 PRIMARY KEY (guild_id, member_id)
+            )"""
+        )
+        self.db.execute(
+            """CREATE TABLE IF NOT EXISTS text_mute_overwrites (
+                guild_id INTEGER NOT NULL,
+                member_id INTEGER NOT NULL,
+                channel_id INTEGER NOT NULL,
+                previous TEXT NOT NULL,
+                PRIMARY KEY (guild_id, member_id, channel_id)
             )"""
         )
         self.db.commit()
@@ -123,6 +133,87 @@ class TextMute(commands.Cog):
                 f"{', '.join(failures[:5])}. لازم البوت معاه Manage Roles في القنوات دي.",
             )
 
+    async def apply_member_overwrite(self, channel, member):
+        """An explicit member deny wins over contradictory role-level allows."""
+        existing = channel.overwrites_for(member)
+        if all(getattr(existing, key) is False for key in DENIED):
+            return
+        guild_id = channel.guild.id
+        original = {key: getattr(existing, key) for key in DENIED}
+        # Save before writing so an interrupted operation can still restore it.
+        self.db.execute(
+            """INSERT OR IGNORE INTO text_mute_overwrites
+               (guild_id, member_id, channel_id, previous) VALUES (?, ?, ?, ?)""",
+            (guild_id, member.id, channel.id, json.dumps(original)),
+        )
+        self.db.commit()
+        for key in DENIED:
+            setattr(existing, key, False)
+        await channel.set_permissions(
+            member, overwrite=existing,
+            reason="VanGuard text-only mute: explicit member text deny",
+        )
+
+    async def restore_member_overwrites(self, guild, member):
+        saved = self.db.execute(
+            """SELECT channel_id, previous FROM text_mute_overwrites
+               WHERE guild_id=? AND member_id=?""",
+            (guild.id, member.id),
+        ).fetchall()
+        failed = []
+        for channel_id, raw in saved:
+            channel = guild.get_channel(channel_id)
+            if channel is None:
+                # The channel was deleted, so the overwrite cannot persist.
+                self.db.execute(
+                    "DELETE FROM text_mute_overwrites WHERE guild_id=? AND member_id=? AND channel_id=?",
+                    (guild.id, member.id, channel_id),
+                )
+                continue
+            before = json.loads(raw)
+            existing = channel.overwrites_for(member)
+            for key in DENIED:
+                setattr(existing, key, before[key])
+            try:
+                await channel.set_permissions(
+                    member, overwrite=None if existing.is_empty() else existing,
+                    reason="VanGuard text unmute: restore original text permissions",
+                )
+            except (discord.Forbidden, discord.HTTPException):
+                logger.exception("Unable to restore text permissions in channel %s", channel_id)
+                failed.append(channel.name)
+            else:
+                self.db.execute(
+                    "DELETE FROM text_mute_overwrites WHERE guild_id=? AND member_id=? AND channel_id=?",
+                    (guild.id, member.id, channel_id),
+                )
+        self.db.commit()
+        if failed:
+            raise TextMuteError(
+                f"I couldn't restore text permissions in: {', '.join(failed[:5])}. "
+                "Fix the bot's Manage Roles permission and try /unmute again.",
+                f"مش قادر أرجّع صلاحيات الكتابة في: {', '.join(failed[:5])}. "
+                "ظبط صلاحية Manage Roles للبوت وجرب /unmute تاني.",
+            )
+
+    async def sync_member_channels(self, guild, member):
+        failed = []
+        for channel in guild.channels:
+            if not isinstance(channel, CHANNEL_TYPES):
+                continue
+            try:
+                await self.apply_member_overwrite(channel, member)
+            except (discord.Forbidden, discord.HTTPException):
+                logger.exception("Failed to set member text deny in channel %s", channel.id)
+                failed.append(channel.name)
+        if failed:
+            raise TextMuteError(
+                f"Couldn't restrict text in: {', '.join(failed[:5])}. "
+                "Give the bot Manage Roles in every text channel.",
+                f"مش قادر أقفل الكتابة في: {', '.join(failed[:5])}. "
+                "البوت محتاج Manage Roles في كل القنوات النصية.",
+            )
+
     async def validate(self, guild, actor, target, me, *, role=None):
         reason = target_error(actor, target, me, language=lang(self.bot.store, guild.id))
         if reason:
@@ -156,8 +247,8 @@ class TextMute(commands.Cog):
         role = await self.ensure_role(guild)
         await self.validate(guild, actor, member, me, role=role)
         await self.sync_channels(guild, role)
-        # Existing members may have contradictory explicit channel permissions.
-        # Detect conflicts after the role has been granted and be transparent.
+        # Member-specific denies override other roles that explicitly allow writing.
+        await self.sync_member_channels(guild, member)
         if role not in member.roles:
             await member.add_roles(
                 role, reason=f"Text mute by {actor} ({actor.id}): {reason[:300]}",
@@ -181,6 +272,7 @@ class TextMute(commands.Cog):
                 await member.remove_roles(
                     role, reason=f"Text unmute by {actor} ({actor.id}): {reason[:300]}",
                 )
+        await self.restore_member_overwrites(guild, member)
         self.db.execute(
             "DELETE FROM text_mutes WHERE guild_id=? AND member_id=?",
             (guild.id, member.id),
@@ -236,6 +328,12 @@ class TextMute(commands.Cog):
             return
         try:
             await self.apply_overwrite(channel, role)
+            for (member_id,) in self.db.execute(
+                "SELECT member_id FROM text_mutes WHERE guild_id=?", (channel.guild.id,)
+            ).fetchall():
+                member = channel.guild.get_member(member_id)
+                if member:
+                    await self.apply_member_overwrite(channel, member)
         except (discord.Forbidden, discord.HTTPException):
             logger.exception("Failed to apply text mute in new channel %s", channel.id)
 
@@ -244,10 +342,16 @@ class TextMute(commands.Cog):
         if not isinstance(after, CHANNEL_TYPES):
             return
         role = self.muted_role(after.guild)
-        if role is None or not self.overwrite_needed(after, role):
+        if role is None:
             return
         try:
             await self.apply_overwrite(after, role)
+            for (member_id,) in self.db.execute(
+                "SELECT member_id FROM text_mutes WHERE guild_id=?", (after.guild.id,)
+            ).fetchall():
+                member = after.guild.get_member(member_id)
+                if member:
+                    await self.apply_member_overwrite(after, member)
         except (discord.Forbidden, discord.HTTPException):
             logger.exception("Failed to enforce text mute in channel %s", after.id)
 
@@ -269,9 +373,10 @@ class TextMute(commands.Cog):
                     member = await guild.fetch_member(member_id)
                 if role is not None and role in member.roles:
                     await member.remove_roles(role, reason="VanGuard text mute expired")
+                await self.restore_member_overwrites(guild, member)
             except discord.NotFound:
                 pass  # Member already left the server.
-            except (discord.Forbidden, discord.HTTPException):
+            except (discord.Forbidden, discord.HTTPException, TextMuteError):
                 logger.exception("Could not expire text mute for %s in %s", member_id, guild_id)
                 continue  # Retry on next tick.
             self.db.execute(
