@@ -5,7 +5,6 @@ import logging
 import re
 from datetime import timedelta
 from time import monotonic
-from typing import Literal
 
 import discord
 from discord import app_commands
@@ -16,7 +15,7 @@ from .i18n import tr, lang, decorate
 
 logger = logging.getLogger("sentinel.shortcuts")
 ALLOWED = (
-    "timeout", "untimeout", "kick", "ban", "purge",
+    "timeout", "untimeout", "mute", "unmute", "vmute", "vunmute", "kick", "ban", "purge",
     "antispam_on", "antispam_off", "links_on", "links_off",
     "raid_on", "raid_off",
 )
@@ -25,6 +24,8 @@ WORD = re.compile(r"^[^\W_]{2,24}$", flags=re.UNICODE)
 MENTION = re.compile(r"<@!?\d+>")
 ACTION_PERMISSION = {
     "timeout": "moderate_members", "untimeout": "moderate_members",
+    "mute": "moderate_members", "unmute": "moderate_members",
+    "vmute": "mute_members", "vunmute": "mute_members",
     "kick": "kick_members", "ban": "ban_members", "purge": "manage_messages",
     "antispam_on": "manage_guild", "antispam_off": "manage_guild",
     "links_on": "manage_guild", "links_off": "manage_guild",
@@ -78,14 +79,20 @@ class Shortcuts(commands.GroupCog, group_name="shortcut", group_description="Con
         if not (perms.view_channel and perms.send_messages and perms.read_message_history):
             await reply(interaction, tr(language, "missing_bot"))
             return
-        self.bot.store.update(interaction.guild_id, shortcut_channel_id=channel.id)
+        self.bot.store.update(interaction.guild_id, shortcut_channel_id=channel.id, shortcuts_enabled=True)
         await reply(interaction, tr(language, "short_chan_saved", channel=channel.mention))
 
-    @app_commands.command(name="disable", description="Disable no-prefix shortcuts until a channel is configured")
+    @app_commands.command(name="anywhere", description="Allow shortcuts in any server channel (default)")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def anywhere(self, interaction: discord.Interaction):
+        self.bot.store.update(interaction.guild_id, shortcut_channel_id=None, shortcuts_enabled=True)
+        await reply(interaction, tr(lang(self.bot.store, interaction.guild_id), "short_anywhere"))
+
+    @app_commands.command(name="disable", description="Disable all shortcuts without deleting their definitions")
     @app_commands.checks.has_permissions(manage_guild=True)
     async def disable(self, interaction: discord.Interaction):
-        self.bot.store.update(interaction.guild_id, shortcut_channel_id=None)
-        await reply(interaction, tr(lang(self.bot.store, interaction.guild_id), "short_required"))
+        self.bot.store.update(interaction.guild_id, shortcuts_enabled=False)
+        await reply(interaction, tr(lang(self.bot.store, interaction.guild_id), "short_disabled"))
 
     @app_commands.command(name="set", description="Assign a custom word to a staff action")
     @app_commands.checks.has_permissions(manage_guild=True)
@@ -105,7 +112,15 @@ class Shortcuts(commands.GroupCog, group_name="shortcut", group_description="Con
             await reply(interaction, tr(language, "short_failed"))
             return
         self.bot.store.set_shortcut(interaction.guild_id, word, action.value)
-        await reply(interaction, tr(language, "short_set", word=word, action=action.value))
+        settings = self.bot.store.get(interaction.guild_id)
+        response = tr(language, "short_set", word=word, action=action.value)
+        if not settings.shortcuts_enabled:
+            response += "\n" + tr(language, "short_disabled")
+        elif settings.shortcut_channel_id is not None:
+            response += "\n" + tr(language, "short_scope_channel", channel=f"<#{settings.shortcut_channel_id}>")
+        else:
+            response += "\n" + tr(language, "short_scope_anywhere")
+        await reply(interaction, response)
 
     @app_commands.command(name="remove", description="Delete a configured shortcut")
     @app_commands.checks.has_permissions(manage_guild=True)
@@ -132,7 +147,9 @@ class Shortcuts(commands.GroupCog, group_name="shortcut", group_description="Con
         )
         embed.add_field(
             name=tr(language, "short_chan"),
-            value=f"<#{settings.shortcut_channel_id}>" if settings.shortcut_channel_id else tr(language, "not_set"),
+            value=(tr(language, "short_disabled") if not settings.shortcuts_enabled
+                   else f"<#{settings.shortcut_channel_id}>" if settings.shortcut_channel_id
+                   else tr(language, "short_scope_anywhere")),
             inline=False,
         )
         lines = [f"`{word}`  →  `{action}`" for word, action in mappings.items()]
@@ -141,6 +158,39 @@ class Shortcuts(commands.GroupCog, group_name="shortcut", group_description="Con
             value="\n".join(lines) if lines else tr(language, "short_empty"),
             inline=False,
         )
+        await reply(interaction, embed=decorate(embed, interaction.guild))
+
+    @app_commands.command(name="diagnose", description="Check shortcut status and permissions in this channel")
+    @app_commands.checks.has_permissions(manage_guild=True)
+    async def diagnose(self, interaction: discord.Interaction, word: str = ""):
+        language = lang(self.bot.store, interaction.guild_id)
+        config = self.bot.store.get(interaction.guild_id)
+        mappings = self.bot.store.shortcuts_for(interaction.guild_id)
+        active_here = config.shortcuts_enabled and (
+            config.shortcut_channel_id is None or config.shortcut_channel_id == interaction.channel_id
+        )
+        me = interaction.guild.me or await interaction.guild.fetch_member(self.bot.user.id)
+        perms = interaction.channel.permissions_for(me)
+        can_read_and_reply = perms.view_channel and perms.send_messages
+        status = [
+            f"**{tr(language, 'short_scope_label')}:** " +
+            (tr(language, "short_scope_anywhere") if config.shortcut_channel_id is None
+             else f"<#{config.shortcut_channel_id}>"),
+            f"**Enabled:** {'✅' if config.shortcuts_enabled else '❌'}",
+            f"**Current channel allowed:** {'✅' if active_here else '❌'}",
+            f"**Bot View Channel / Send Messages:** {'✅' if can_read_and_reply else '❌'}",
+            f"**Message Content Intent (code):** {'✅' if self.bot.intents.message_content else '❌'}",
+            f"**Stored shortcuts:** {len(mappings)}",
+        ]
+        if word:
+            key = word.strip().casefold()
+            action = mappings.get(key)
+            status.append(f"**{discord.utils.escape_markdown(word[:24])}:** " +
+                          (f"`{action}`" if action else tr(language, "short_missing", word=word[:24])))
+        status.append(tr(language, "short_diagnose_hint"))
+        embed = discord.Embed(title="🔎 Shortcut Diagnostics", description="\n".join(status),
+                              color=discord.Color.green() if active_here and can_read_and_reply
+                              else discord.Color.orange())
         await reply(interaction, embed=decorate(embed, interaction.guild))
 
     async def target_for(self, message: discord.Message):
@@ -170,7 +220,10 @@ class Shortcuts(commands.GroupCog, group_name="shortcut", group_description="Con
         if not message.guild or message.author.bot or not isinstance(message.author, discord.Member):
             return
         config = self.bot.store.get(message.guild.id)
-        if config.shortcut_channel_id != message.channel.id:
+        if not config.shortcuts_enabled:
+            return
+        # None means server-wide; a specific channel ID is an optional restriction.
+        if config.shortcut_channel_id is not None and config.shortcut_channel_id != message.channel.id:
             return
         parsed = parse_command(message.content, self.bot.store.shortcuts_for(message.guild.id))
         if parsed is None:
@@ -190,8 +243,10 @@ class Shortcuts(commands.GroupCog, group_name="shortcut", group_description="Con
             except discord.HTTPException:
                 return
         bot_perms = message.channel.permissions_for(me) if action == "purge" else me.guild_permissions
-        if not getattr(bot_perms, required, False) or (action == "purge" and not bot_perms.read_message_history):
-            await message.reply(tr(language, "short_bot_denied"), mention_author=False)
+        channel_perms = message.channel.permissions_for(me)
+        if not (channel_perms.view_channel and channel_perms.send_messages) or not getattr(bot_perms, required, False) or (action == "purge" and not channel_perms.read_message_history):
+            logger.warning("Shortcut %s blocked: bot lacks permissions in guild %s channel %s",
+                           action, message.guild.id, message.channel.id)
             return
         key = message.guild.id, actor.id
         now = monotonic()
@@ -216,22 +271,36 @@ class Shortcuts(commands.GroupCog, group_name="shortcut", group_description="Con
                 if member is None:
                     await message.reply(tr(language, "short_target", word=word), mention_author=False)
                     return
-                error = target_error(actor, member, me, for_timeout=action in ("timeout", "untimeout"),
+                error = target_error(actor, member, me, for_timeout=action in ("timeout", "untimeout", "mute", "unmute"),
                                      language=language)
                 if error:
                     await message.reply(error, mention_author=False)
                     return
                 reason = f"Quick command by {actor} ({actor.id})"
-                if action == "timeout":
+                if action in ("timeout", "mute"):
                     minutes = integer_arg(args, 1, 40320, default=10)
                     if minutes is None:
                         await message.reply(tr(language, "short_minutes"), mention_author=False)
                         return
                     await member.timeout(timedelta(minutes=minutes), reason=reason)
                     detail = f"{member} ({member.id}) timed out for {minutes} min"
-                elif action == "untimeout":
+                elif action in ("untimeout", "unmute"):
                     await member.timeout(None, reason=reason)
                     detail = f"Timeout removed from {member} ({member.id})"
+                elif action in ("vmute", "vunmute"):
+                    if not member.voice or not member.voice.channel:
+                        await message.reply(tr(language, "short_voice_missing"), mention_author=False)
+                        return
+                    voice_channel = member.voice.channel
+                    if not voice_channel.permissions_for(actor).mute_members:
+                        await message.reply(tr(language, "short_denied"), mention_author=False)
+                        return
+                    if not voice_channel.permissions_for(me).mute_members:
+                        await message.reply(tr(language, "short_bot_denied"), mention_author=False)
+                        return
+                    is_muting = action == "vmute"
+                    await member.edit(mute=is_muting, reason=reason)
+                    detail = f"{member} ({member.id}) {'voice muted' if is_muting else 'voice unmuted'}"
                 elif action == "kick":
                     await member.kick(reason=reason)
                     detail = f"{member} ({member.id}) kicked"
