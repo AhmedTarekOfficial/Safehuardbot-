@@ -34,6 +34,8 @@ class GuildSettings:
     links: bool = False
     raid: bool = False
     log_channel_id: int | None = None
+    language: str = "en"
+    shortcut_channel_id: int | None = None
 
 
 class SettingsStore:
@@ -50,13 +52,26 @@ class SettingsStore:
                 log_channel_id INTEGER
             )"""
         )
+        # Non-destructive migrations for existing SQLite installations.
+        columns = {row[1] for row in self.connection.execute("PRAGMA table_info(guild_settings)")}
+        if "language" not in columns:
+            self.connection.execute("ALTER TABLE guild_settings ADD COLUMN language TEXT NOT NULL DEFAULT 'en'")
+        if "shortcut_channel_id" not in columns:
+            self.connection.execute("ALTER TABLE guild_settings ADD COLUMN shortcut_channel_id INTEGER")
+        self.connection.execute("""CREATE TABLE IF NOT EXISTS guild_shortcuts (
+            guild_id INTEGER NOT NULL,
+            word TEXT NOT NULL,
+            action TEXT NOT NULL,
+            PRIMARY KEY (guild_id, word)
+        )""")
         self.connection.commit()
         self.cache: dict[int, GuildSettings] = {}
-        for guild_id, antispam, links, raid, log_channel_id in self.connection.execute(
-            "SELECT guild_id, antispam, links, raid, log_channel_id FROM guild_settings"
+        for guild_id, antispam, links, raid, log_channel_id, language, shortcut_channel_id in self.connection.execute(
+            "SELECT guild_id, antispam, links, raid, log_channel_id, language, shortcut_channel_id FROM guild_settings"
         ):
             self.cache[guild_id] = GuildSettings(
-                bool(antispam), bool(links), bool(raid), log_channel_id
+                bool(antispam), bool(links), bool(raid), log_channel_id,
+                language if language in ("en", "ar") else "en", shortcut_channel_id
             )
 
     def get(self, guild_id: int) -> GuildSettings:
@@ -64,27 +79,54 @@ class SettingsStore:
 
     def update(self, guild_id: int, **changes) -> GuildSettings:
         before = self.get(guild_id)
-        fields = {"antispam", "links", "raid", "log_channel_id"}
+        fields = {"antispam", "links", "raid", "log_channel_id", "language", "shortcut_channel_id"}
         if not changes.keys() <= fields:
             raise ValueError("Invalid settings field")
+        if "language" in changes and changes["language"] not in ("en", "ar"):
+            raise ValueError("Language must be 'en' or 'ar'")
         data = {name: getattr(before, name) for name in fields}
         data.update(changes)
         updated = GuildSettings(**data)
         self.connection.execute(
             """INSERT INTO guild_settings
-               (guild_id, antispam, links, raid, log_channel_id)
-               VALUES (?, ?, ?, ?, ?)
+               (guild_id, antispam, links, raid, log_channel_id, language, shortcut_channel_id)
+               VALUES (?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(guild_id) DO UPDATE SET
                    antispam=excluded.antispam,
                    links=excluded.links,
                    raid=excluded.raid,
-                   log_channel_id=excluded.log_channel_id""",
+                   log_channel_id=excluded.log_channel_id,
+                   language=excluded.language,
+                   shortcut_channel_id=excluded.shortcut_channel_id""",
             (guild_id, int(updated.antispam), int(updated.links),
-             int(updated.raid), updated.log_channel_id),
+             int(updated.raid), updated.log_channel_id, updated.language,
+             updated.shortcut_channel_id),
         )
         self.connection.commit()
         self.cache[guild_id] = updated
         return updated
+
+    def shortcuts_for(self, guild_id: int) -> dict[str, str]:
+        return dict(self.connection.execute(
+            "SELECT word, action FROM guild_shortcuts WHERE guild_id = ? ORDER BY word",
+            (guild_id,),
+        ))
+
+    def set_shortcut(self, guild_id: int, word: str, action: str) -> None:
+        self.connection.execute(
+            """INSERT INTO guild_shortcuts (guild_id, word, action) VALUES (?, ?, ?)
+               ON CONFLICT(guild_id, word) DO UPDATE SET action=excluded.action""",
+            (guild_id, word, action),
+        )
+        self.connection.commit()
+
+    def remove_shortcut(self, guild_id: int, word: str) -> bool:
+        cursor = self.connection.execute(
+            "DELETE FROM guild_shortcuts WHERE guild_id=? AND word=?",
+            (guild_id, word),
+        )
+        self.connection.commit()
+        return cursor.rowcount > 0
 
     def close(self):
         self.connection.close()
