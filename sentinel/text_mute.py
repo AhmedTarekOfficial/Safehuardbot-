@@ -352,7 +352,12 @@ class TextMute(commands.Cog):
                 "SELECT member_id FROM text_mutes WHERE guild_id=?", (channel.guild.id,)
             ).fetchall():
                 member = channel.guild.get_member(member_id)
-                if member and role in member.roles and (channel.guild.id, member_id) not in self.releasing:
+                if member is None:
+                    try:
+                        member = await channel.guild.fetch_member(member_id)
+                    except discord.NotFound:
+                        continue
+                if role in member.roles and (channel.guild.id, member_id) not in self.releasing:
                     await self.apply_member_overwrite(channel, member)
         except (discord.Forbidden, discord.HTTPException):
             logger.exception("Failed to apply text mute in new channel %s", channel.id)
@@ -370,7 +375,12 @@ class TextMute(commands.Cog):
                 "SELECT member_id FROM text_mutes WHERE guild_id=?", (after.guild.id,)
             ).fetchall():
                 member = after.guild.get_member(member_id)
-                if member and role in member.roles and (after.guild.id, member_id) not in self.releasing:
+                if member is None:
+                    try:
+                        member = await after.guild.fetch_member(member_id)
+                    except discord.NotFound:
+                        continue
+                if role in member.roles and (after.guild.id, member_id) not in self.releasing:
                     await self.apply_member_overwrite(after, member)
         except (discord.Forbidden, discord.HTTPException):
             logger.exception("Failed to enforce text mute in channel %s", after.id)
