@@ -69,6 +69,13 @@ class PermissionsView(discord.ui.View):
         self.guild = guild
         self.opener_id = opener_id
         self.store = store
+        self.mode = "overview"  # overview | role | search
+        self.role_id: int | None = None
+        self.search_name: str | None = None
+        self.page = 0
+        self.add_item(RolePicker(self.language))
+        self._apply_labels()
+        self._refresh_buttons()
 
     @property
     def language(self):
@@ -80,14 +87,6 @@ class PermissionsView(discord.ui.View):
         self.search.label = tr(language, "search_perm")
         self.previous.label = tr(language, "previous")
         self.next_page.label = tr(language, "next")
-
-        self.mode = "overview"  # overview | role | search
-        self.role_id: int | None = None
-        self.search_name: str | None = None
-        self.page = 0
-        self.add_item(RolePicker(self.language))
-        self._apply_labels()
-        self._refresh_buttons()
 
     async def can_use(self, interaction: discord.Interaction) -> bool:
         if interaction.user.id != self.opener_id:
