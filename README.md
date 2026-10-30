@@ -154,3 +154,18 @@ Previously no-prefix commands were silently disabled until a staff channel was s
 New commands: `/mute` / `/unmute` apply and remove text Timeout, while `/vmute` / `/vunmute` use Discord's server voice mute for a member currently connected to voice. Shortcut aliases support `mute`, `unmute`, `vmute`, and `vunmute` alongside existing actions.
 
 Example: `/shortcut set word:اص action:mute` followed by `اص @member 10` or replying `اص 10`. Make sure the privileged Message Content Intent is enabled, and do not choose common chat words as aliases.
+
+## Opt-in broadcast announcements (DM and in-channel)
+
+- `/broadcast panel` (Manage Server): publish persistent Subscribe/Unsubscribe buttons.
+- `/broadcast subscribe` and `/broadcast unsubscribe`: voluntary member controls.
+- `/broadcast count` (Manage Server): current opted-in audience size.
+- `/broadcast send message:...` (Manage Server): private preview with confirmation before any DM.
+- `/broadcast status` (Manage Server): latest campaign results, including interrupted runs.
+- `/announce channel:#announcements message:...` (Manage Server): post a server-channel announcement without unsolicited member DMs.
+
+Broadcasts are strictly **opt-in**. Each recipient is rechecked for subscription and server membership immediately before sending. DMs are spaced by 1.5 seconds, limited to 500 opted-in recipients per campaign, and campaigns have a five-minute start cooldown. Only one campaign can be active per server at a time.
+
+The initiating moderator receives an end-of-run report by DM; if unavailable, the report is stored in SQLite and available via `/broadcast status`. Counters include attempted recipients, accepted DMs, Forbidden deliveries (privacy/block restrictions, exact cause unknown), other failures and skipped/unsubscribed users. Accepted DMs do not establish whether messages were read. On restart, unfinished runs are marked interrupted and are **not automatically retried** to avoid duplicate messages.
+
+This feature requires the existing Server Members Intent. No Message Content Intent is needed for the slash-command broadcast itself. Back up the SQLite file before redeployment.
