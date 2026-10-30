@@ -250,6 +250,10 @@ class TextMute(commands.Cog):
         role = await self.ensure_role(guild)
         await self.validate(guild, actor, member, me, role=role)
         await self.sync_channels(guild, role)
+        was_active = self.db.execute(
+            "SELECT 1 FROM text_mutes WHERE guild_id=? AND member_id=?",
+            (guild.id, member.id),
+        ).fetchone() is not None
         try:
             # Member-specific denies override other roles that explicitly allow writing.
             await self.sync_member_channels(guild, member)
@@ -258,11 +262,12 @@ class TextMute(commands.Cog):
                     role, reason=f"Text mute by {actor} ({actor.id}): {reason[:300]}",
                 )
         except Exception:
-            # Do not leave half-applied member channel restrictions after failure.
-            try:
-                await self.restore_member_overwrites(guild, member)
-            except TextMuteError:
-                logger.exception("Failed to roll back incomplete text mute %s", member.id)
+            # Only rollback newly-created restrictions; preserve an older active mute.
+            if not was_active:
+                try:
+                    await self.restore_member_overwrites(guild, member)
+                except TextMuteError:
+                    logger.exception("Failed to roll back incomplete text mute %s", member.id)
             raise
         expires_at = int((datetime.now(timezone.utc) + timedelta(minutes=minutes)).timestamp())
         self.db.execute(
