@@ -84,6 +84,45 @@ class ShortcutDispatchTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.store.shortcuts_for(1)["درع"], "antispam_on")
         msg.channel.send.assert_not_awaited()
 
+    async def test_text_mute_shortcut_uses_role_service_not_timeout(self):
+        self.store.set_shortcut(1, "اص", "mute")
+        msg = self.message(content="اص <@!200> 7", channel_id=20)
+        msg.author.guild_permissions.manage_roles = True
+        msg.guild.me.guild_permissions.manage_roles = True
+        member = Mock(spec=discord.Member)
+        member.id = 200
+        member.timeout = AsyncMock()
+        self.cog.target_for = AsyncMock(return_value=member)
+        service = SimpleNamespace(apply=AsyncMock(), remove=AsyncMock())
+        self.bot.get_cog = Mock(return_value=service)
+        with (
+            patch("sentinel.shortcuts.target_error", return_value=None),
+            patch("sentinel.shortcuts.log_action", new_callable=AsyncMock),
+        ):
+            await self.cog.on_message(msg)
+        service.apply.assert_awaited_once()
+        self.assertEqual(service.apply.await_args.args[3], 7)
+        member.timeout.assert_not_awaited()
+
+    async def test_text_unmute_shortcut_does_not_call_timeout(self):
+        self.store.set_shortcut(1, "فك", "unmute")
+        msg = self.message(content="فك <@200>", channel_id=20)
+        msg.author.guild_permissions.manage_roles = True
+        msg.guild.me.guild_permissions.manage_roles = True
+        member = Mock(spec=discord.Member)
+        member.id = 200
+        member.timeout = AsyncMock()
+        self.cog.target_for = AsyncMock(return_value=member)
+        service = SimpleNamespace(apply=AsyncMock(), remove=AsyncMock())
+        self.bot.get_cog = Mock(return_value=service)
+        with (
+            patch("sentinel.shortcuts.target_error", return_value=None),
+            patch("sentinel.shortcuts.log_action", new_callable=AsyncMock),
+        ):
+            await self.cog.on_message(msg)
+        service.remove.assert_awaited_once()
+        member.timeout.assert_not_awaited()
+
     async def test_voice_mute_checks_target_voice_channel(self):
         self.store.set_shortcut(1, "سك", "vmute")
         msg = self.message(content="سك <@!200>", channel_id=20)
