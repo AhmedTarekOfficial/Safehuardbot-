@@ -232,8 +232,9 @@ class Shortcuts(commands.GroupCog, group_name="shortcut", group_description="Con
         language = config.language
         actor = message.author
         required = ACTION_PERMISSION[action]
+        voice_action = action in ("vmute", "vunmute")
         actor_perms = message.channel.permissions_for(actor) if action == "purge" else actor.guild_permissions
-        if not getattr(actor_perms, required, False):
+        if not voice_action and not getattr(actor_perms, required, False):
             await message.reply(tr(language, "short_denied"), mention_author=False)
             return
         me = message.guild.me
@@ -244,7 +245,7 @@ class Shortcuts(commands.GroupCog, group_name="shortcut", group_description="Con
                 return
         bot_perms = message.channel.permissions_for(me) if action == "purge" else me.guild_permissions
         channel_perms = message.channel.permissions_for(me)
-        if not (channel_perms.view_channel and channel_perms.send_messages) or not getattr(bot_perms, required, False) or (action == "purge" and not channel_perms.read_message_history):
+        if not (channel_perms.view_channel and channel_perms.send_messages) or (not voice_action and not getattr(bot_perms, required, False)) or (action == "purge" and not channel_perms.read_message_history):
             logger.warning("Shortcut %s blocked: bot lacks permissions in guild %s channel %s",
                            action, message.guild.id, message.channel.id)
             return
