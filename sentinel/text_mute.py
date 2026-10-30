@@ -70,6 +70,7 @@ class TextMute(commands.Cog):
             )"""
         )
         self.db.commit()
+        self.releasing: set[tuple[int, int]] = set()
         self.expire_mutes.start()
 
     def cog_unload(self):
@@ -278,16 +279,20 @@ class TextMute(commands.Cog):
         role = self.muted_role(guild)
         if role is not None:
             await self.validate(guild, actor, member, me, role=role)
-            if role in member.roles:
+        self.releasing.add((guild.id, member.id))
+        try:
+            if role is not None and role in member.roles:
                 await member.remove_roles(
                     role, reason=f"Text unmute by {actor} ({actor.id}): {reason[:300]}",
                 )
-        await self.restore_member_overwrites(guild, member)
-        self.db.execute(
-            "DELETE FROM text_mutes WHERE guild_id=? AND member_id=?",
-            (guild.id, member.id),
-        )
-        self.db.commit()
+            await self.restore_member_overwrites(guild, member)
+            self.db.execute(
+                "DELETE FROM text_mutes WHERE guild_id=? AND member_id=?",
+                (guild.id, member.id),
+            )
+            self.db.commit()
+        finally:
+            self.releasing.discard((guild.id, member.id))
 
     @app_commands.command(name="mute", description="Prevent writing only (role-based), no Timeout or voice mute")
     @app_commands.guild_only()
@@ -342,7 +347,7 @@ class TextMute(commands.Cog):
                 "SELECT member_id FROM text_mutes WHERE guild_id=?", (channel.guild.id,)
             ).fetchall():
                 member = channel.guild.get_member(member_id)
-                if member and role in member.roles:
+                if member and role in member.roles and (channel.guild.id, member_id) not in self.releasing:
                     await self.apply_member_overwrite(channel, member)
         except (discord.Forbidden, discord.HTTPException):
             logger.exception("Failed to apply text mute in new channel %s", channel.id)
@@ -360,7 +365,7 @@ class TextMute(commands.Cog):
                 "SELECT member_id FROM text_mutes WHERE guild_id=?", (after.guild.id,)
             ).fetchall():
                 member = after.guild.get_member(member_id)
-                if member and role in member.roles:
+                if member and role in member.roles and (after.guild.id, member_id) not in self.releasing:
                     await self.apply_member_overwrite(after, member)
         except (discord.Forbidden, discord.HTTPException):
             logger.exception("Failed to enforce text mute in channel %s", after.id)
@@ -381,9 +386,13 @@ class TextMute(commands.Cog):
                 member = guild.get_member(member_id)
                 if member is None:
                     member = await guild.fetch_member(member_id)
-                if role is not None and role in member.roles:
-                    await member.remove_roles(role, reason="VanGuard text mute expired")
-                await self.restore_member_overwrites(guild, member)
+                self.releasing.add((guild_id, member_id))
+                try:
+                    if role is not None and role in member.roles:
+                        await member.remove_roles(role, reason="VanGuard text mute expired")
+                    await self.restore_member_overwrites(guild, member)
+                finally:
+                    self.releasing.discard((guild_id, member_id))
             except discord.NotFound:
                 pass  # Member already left the server.
             except (discord.Forbidden, discord.HTTPException, TextMuteError):
