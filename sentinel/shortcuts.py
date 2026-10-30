@@ -24,7 +24,7 @@ WORD = re.compile(r"^[^\W_]{2,24}$", flags=re.UNICODE)
 MENTION = re.compile(r"<@!?\d+>")
 ACTION_PERMISSION = {
     "timeout": "moderate_members", "untimeout": "moderate_members",
-    "mute": "moderate_members", "unmute": "moderate_members",
+    "mute": "manage_roles", "unmute": "manage_roles",
     "vmute": "mute_members", "vunmute": "mute_members",
     "kick": "kick_members", "ban": "ban_members", "purge": "manage_messages",
     "antispam_on": "manage_guild", "antispam_off": "manage_guild",
@@ -272,22 +272,42 @@ class Shortcuts(commands.GroupCog, group_name="shortcut", group_description="Con
                 if member is None:
                     await message.reply(tr(language, "short_target", word=word), mention_author=False)
                     return
-                error = target_error(actor, member, me, for_timeout=action in ("timeout", "untimeout", "mute", "unmute"),
+                error = target_error(actor, member, me, for_timeout=action in ("timeout", "untimeout"),
                                      language=language)
                 if error:
                     await message.reply(error, mention_author=False)
                     return
                 reason = f"Quick command by {actor} ({actor.id})"
-                if action in ("timeout", "mute"):
+                if action == "timeout":
                     minutes = integer_arg(args, 1, 40320, default=10)
                     if minutes is None:
                         await message.reply(tr(language, "short_minutes"), mention_author=False)
                         return
                     await member.timeout(timedelta(minutes=minutes), reason=reason)
                     detail = f"{member} ({member.id}) timed out for {minutes} min"
-                elif action in ("untimeout", "unmute"):
+                elif action == "untimeout":
                     await member.timeout(None, reason=reason)
                     detail = f"Timeout removed from {member} ({member.id})"
+                elif action in ("mute", "unmute"):
+                    from .text_mute import TextMuteError
+                    service = self.bot.get_cog("TextMute")
+                    if service is None:
+                        await message.reply(tr(language, "short_failed"), mention_author=False)
+                        return
+                    try:
+                        if action == "mute":
+                            minutes = integer_arg(args, 1, 40320, default=10)
+                            if minutes is None:
+                                await message.reply(tr(language, "short_minutes"), mention_author=False)
+                                return
+                            await service.apply(message.guild, actor, member, minutes, reason)
+                            detail = f"{member} ({member.id}) text-muted for {minutes} min (role only)"
+                        else:
+                            await service.remove(message.guild, actor, member, reason)
+                            detail = f"Text mute role removed from {member} ({member.id})"
+                    except TextMuteError as exc:
+                        await message.reply(exc.localized(language), mention_author=False)
+                        return
                 elif action in ("vmute", "vunmute"):
                     if not member.voice or not member.voice.channel:
                         await message.reply(tr(language, "short_voice_missing"), mention_author=False)
