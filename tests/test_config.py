@@ -77,5 +77,45 @@ class SettingsStoreTests(unittest.TestCase):
                     self.assertEqual(database_path(), mount / "my.db")
 
 
+    def test_language_and_shortcuts_persist_between_restarts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "store.db"
+            db = SettingsStore(path)
+            db.update(77, language="ar", shortcut_channel_id=234)
+            db.set_shortcut(77, "اص", "timeout")
+            db.set_shortcut(77, "مسح", "purge")
+            db.close()
+            reopened = SettingsStore(path)
+            self.assertEqual(reopened.get(77).language, "ar")
+            self.assertEqual(reopened.get(77).shortcut_channel_id, 234)
+            self.assertEqual(reopened.shortcuts_for(77), {"اص": "timeout", "مسح": "purge"})
+            self.assertTrue(reopened.remove_shortcut(77, "اص"))
+            self.assertFalse(reopened.remove_shortcut(77, "اص"))
+            reopened.close()
+
+    def test_migration_preserves_existing_guild_settings(self):
+        import sqlite3
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "legacy.db"
+            connection = sqlite3.connect(path)
+            connection.execute("""CREATE TABLE guild_settings (
+                guild_id INTEGER PRIMARY KEY,
+                antispam INTEGER NOT NULL DEFAULT 0,
+                links INTEGER NOT NULL DEFAULT 0,
+                raid INTEGER NOT NULL DEFAULT 0,
+                log_channel_id INTEGER
+            )""")
+            connection.execute("INSERT INTO guild_settings VALUES (9, 1, 0, 1, 321)")
+            connection.commit()
+            connection.close()
+            store = SettingsStore(path)
+            self.assertTrue(store.get(9).antispam)
+            self.assertTrue(store.get(9).raid)
+            self.assertEqual(store.get(9).log_channel_id, 321)
+            self.assertEqual(store.get(9).language, "en")
+            self.assertEqual(store.shortcuts_for(9), {})
+            store.close()
+
+
 if __name__ == "__main__":
     unittest.main()
