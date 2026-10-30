@@ -15,6 +15,9 @@ from sentinel.common import reply
 from sentinel.guard import Guard
 from sentinel.moderation import Moderation, Roles
 from sentinel.panel import PermissionsCog
+from sentinel.shortcuts import Shortcuts
+from sentinel.dashboard import HelpView, LanguageView
+from sentinel.i18n import tr, lang
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 logger = logging.getLogger("sentinel")
@@ -31,7 +34,7 @@ class SentinelBot(commands.Bot):
         self.store = SettingsStore()
 
     async def setup_hook(self):
-        for cog in (Moderation(self), Roles(self), Guard(self), PermissionsCog(self)):
+        for cog in (Moderation(self), Roles(self), Guard(self), PermissionsCog(self), Shortcuts(self)):
             await self.add_cog(cog)
         guild_id = os.getenv("DEV_GUILD_ID", "").strip()
         if guild_id:
@@ -56,23 +59,29 @@ class SentinelBot(commands.Bot):
 bot = SentinelBot()
 
 
-@bot.tree.command(name="helpbot", description="Show all Sentinel moderation and safety commands")
+@bot.tree.command(name="helpbot", description="Open the interactive staff command dashboard")
 @app_commands.guild_only()
 async def helpbot(interaction: discord.Interaction):
-    embed = discord.Embed(title="Sentinel — Command Guide", color=discord.Color.blurple())
-    embed.add_field(name="Moderation", value="`/kick` `/ban` `/unban` `/timeout` `/untimeout` `/purge`", inline=False)
-    embed.add_field(name="Roles & permissions", value="`/role add` `/role remove` `/permissions`", inline=False)
-    embed.add_field(name="Protection", value="`/guard antispam` `/guard links` `/guard raid` `/guard logs` `/guard clearlogs` `/guard status`", inline=False)
-    embed.set_footer(text="All management commands verify the invoking member's permissions.")
-    await reply(interaction, embed=embed)
+    panel = HelpView(bot, interaction.guild, interaction.user.id)
+    await reply(interaction, embed=panel.render(), view=panel)
+
+
+@bot.tree.command(name="language", description="Change the server dashboard language / تغيير لغة البوت")
+@app_commands.guild_only()
+@app_commands.default_permissions(manage_guild=True)
+@app_commands.checks.has_permissions(manage_guild=True)
+async def language(interaction: discord.Interaction):
+    panel = LanguageView(bot, interaction.guild, interaction.user.id)
+    await reply(interaction, embed=panel.render(), view=panel)
 
 
 @bot.tree.error
 async def on_app_command_error(interaction: discord.Interaction, error: app_commands.AppCommandError):
+    language = lang(bot.store, interaction.guild_id)
     if isinstance(error, app_commands.MissingPermissions):
-        return await reply(interaction, "You do not have the required Discord permissions.")
+        return await reply(interaction, tr(language, "missing_user"))
     if isinstance(error, app_commands.BotMissingPermissions):
-        return await reply(interaction, "The bot is missing required permissions or a channel override blocks it.")
+        return await reply(interaction, tr(language, "missing_bot"))
     if isinstance(error, app_commands.NoPrivateMessage):
         return await reply(interaction, "This command only works inside a server.")
     if isinstance(error, app_commands.CheckFailure):
@@ -80,12 +89,12 @@ async def on_app_command_error(interaction: discord.Interaction, error: app_comm
     if isinstance(error, app_commands.CommandOnCooldown):
         return await reply(interaction, f"Try again in {error.retry_after:.1f} seconds.")
     if isinstance(error, app_commands.CommandInvokeError) and isinstance(error.original, discord.Forbidden):
-        return await reply(interaction, "Discord rejected this action. Check bot permissions and role hierarchy.")
+        return await reply(interaction, tr(language, "command_failed"))
     if isinstance(error, app_commands.CommandInvokeError) and isinstance(error.original, discord.HTTPException):
-        return await reply(interaction, "Discord could not complete the action. Check permissions and try again.")
+        return await reply(interaction, tr(language, "command_failed"))
     logger.error("Unhandled application command error", exc_info=(type(error), error, error.__traceback__))
     try:
-        await reply(interaction, "An unexpected error occurred. Check the bot console logs.")
+        await reply(interaction, tr(language, "command_failed"))
     except discord.HTTPException:
         pass
 
