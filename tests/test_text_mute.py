@@ -2,11 +2,11 @@
 import sqlite3
 import unittest
 from types import SimpleNamespace
-from unittest.mock import AsyncMock, Mock, patch
+from unittest.mock import AsyncMock, Mock
 
 import discord
 
-from sentinel.text_mute import DENIED, TextMute
+from sentinel.text_mute import TextMute
 
 
 class TextMuteTests(unittest.IsolatedAsyncioTestCase):
@@ -61,8 +61,7 @@ class TextMuteTests(unittest.IsolatedAsyncioTestCase):
             user=SimpleNamespace(id=999),
         )
         self.bot.get_guild = Mock(return_value=self.guild)
-        with patch.object(TextMute.expire_mutes, "start"):
-            self.cog = TextMute(self.bot)
+        self.cog = TextMute(self.bot)
         self.cog.ensure_role = AsyncMock(return_value=self.role)
         self.cog.validate = AsyncMock()
         self.cog.muted_role = Mock(return_value=self.role)
@@ -79,6 +78,7 @@ class TextMuteTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(self.user_overwrite.send_messages_in_threads)
         self.assertFalse(self.user_overwrite.create_public_threads)
         self.assertFalse(self.user_overwrite.create_private_threads)
+        self.assertFalse(self.user_overwrite.send_voice_messages)
         # Only text flags change; voice access and original view permissions remain untouched.
         self.assertIsNone(self.user_overwrite.speak)
         self.assertIsNone(self.user_overwrite.connect)
@@ -86,6 +86,22 @@ class TextMuteTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.channel.set_permissions.await_count, 2)
         self.assertEqual(self.db.execute("SELECT COUNT(*) FROM text_mutes").fetchone()[0], 1)
         self.assertEqual(self.db.execute("SELECT COUNT(*) FROM text_mute_overwrites").fetchone()[0], 1)
+
+    async def test_muted_member_messages_are_deleted_without_timeout(self):
+        await self.cog.apply(self.guild, self.actor, self.member, minutes=5)
+        self.guild.me = self.bot_member
+        channel = Mock()
+        channel.id = 55
+        channel.permissions_for.return_value = SimpleNamespace(manage_messages=True)
+        message = Mock(spec=discord.Message)
+        message.guild = self.guild
+        message.author = self.member
+        message.author.bot = False
+        message.channel = channel
+        message.delete = AsyncMock()
+        await self.cog.on_message(message)
+        message.delete.assert_awaited_once()
+        self.member.timeout.assert_not_awaited()
 
     async def test_unmute_restores_overrides_and_does_not_clear_timeout(self):
         await self.cog.apply(self.guild, self.actor, self.member, minutes=5)

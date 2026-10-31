@@ -90,7 +90,7 @@ class Moderation(commands.Cog):
         await log_action(interaction.guild, self.bot.store, "User unbanned",
                          f"User ID: `{user_id}`\nBy: {interaction.user}\nReason: {reason}")
 
-    @app_commands.command(name="timeout", description="Temporarily prevent a member from chatting")
+    @app_commands.command(name="timeout", description="Discord Timeout: block chat and voice for a duration")
     @app_commands.guild_only()
     @app_commands.default_permissions(moderate_members=True)
     @app_commands.checks.has_permissions(moderate_members=True)
@@ -108,7 +108,7 @@ class Moderation(commands.Cog):
         await log_action(interaction.guild, self.bot.store, "Member timed out",
                          f"Member: {member} (`{member.id}`)\nBy: {interaction.user}\nDuration: {minutes} minutes\nReason: {reason}")
 
-    @app_commands.command(description="Remove a member's timeout")
+    @app_commands.command(description="Remove a member's Discord Timeout")
     @app_commands.guild_only()
     @app_commands.default_permissions(moderate_members=True)
     @app_commands.checks.has_permissions(moderate_members=True)
@@ -127,6 +127,7 @@ class Moderation(commands.Cog):
     @app_commands.command(name="vmute", description="Server-mute a member who is in a voice channel")
     @app_commands.guild_only()
     @app_commands.default_permissions(mute_members=True)
+    @app_commands.checks.has_permissions(mute_members=True)
     async def vmute(self, interaction: discord.Interaction, member: discord.Member, reason: str = "No reason"):
         await interaction.response.defer(ephemeral=True)
         if not await self.check_member(interaction, member):
@@ -158,6 +159,7 @@ class Moderation(commands.Cog):
     @app_commands.command(name="vunmute", description="Remove a member's server voice mute")
     @app_commands.guild_only()
     @app_commands.default_permissions(mute_members=True)
+    @app_commands.checks.has_permissions(mute_members=True)
     async def vunmute(self, interaction: discord.Interaction, member: discord.Member, reason: str = "No reason"):
         await interaction.response.defer(ephemeral=True)
         if not await self.check_member(interaction, member):

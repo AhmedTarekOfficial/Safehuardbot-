@@ -7,14 +7,18 @@ A practical Python Discord bot built with **discord.py 2.7.1**. Management is ha
 - `/kick member reason`
 - `/ban member reason delete_hours` (0–168 hours of previous messages; defaults to zero)
 - `/unban user_id reason` (Discord numeric user ID)
-- `/timeout member minutes reason` (1–40,320 minutes / max 28 days)
+- `/mute member minutes reason` — block **writing only** (role + channel denies; not Discord Timeout)
+- `/unmute member reason` — remove text mute
+- `/timeout member minutes reason` (1–40,320 minutes / max 28 days) — Discord Timeout (chat + voice)
 - `/untimeout member reason`
+- `/vmute` / `/vunmute` — server voice mute for a member currently in voice
 - `/purge amount` (1–100 recent messages, text channels and threads)
 - `/role add member role` and `/role remove member role`
 - `/permissions` **interactive private dashboard**: any server role via Role Select, full enabled/disabled base permission flags with paging, list of all roles, and text search for one permission (`manage_roles`, `ban_members`, `send_messages`, etc.) to find roles granting it either explicitly or through Administrator.
-- `/guard antispam enabled` — delete triggering messages and try to timeout the offender for 10 minutes. Triggers on 7+ messages/8 s, 4 identical messages/12 s, or 8+ mentioned users in one message.
-- `/guard links enabled` — remove Discord invite links (only); moderators are exempt.
+- `/guard antispam enabled` — delete triggering messages; timeout humans (10 min) or **kick foreign bots**. Triggers on 7+ messages/8 s, 4 identical messages/12 s, 8+ mentions, or foreign-bot floods.
+- `/guard links enabled` — remove Discord invites (users + bots), strip URL spam from foreign bots, and punish rapid link floods; moderators are exempt (other bots are not).
 - `/guard raid enabled` — raise an **alert only** when 8+ joins occur within 20 s; no automatic kicks/bans.
+- `/guard botguard enabled` — kick (or quarantine) **new bots** until staff approve them with `/guard approvebot`. Works even for bots invited with Administrator (kick is required because Admin bypasses channel locks). `/guard revokebot` / `/guard botlist` manage the allowlist.
 - `/guard logs channel` and `/guard clearlogs` — configure a log channel.
 - `/guard status` — view current configuration.
 - `/helpbot` — command reference.
@@ -60,9 +64,12 @@ python main.py
 /guard antispam enabled:True
 /guard raid enabled:True
 /guard links enabled:True
+/guard botguard enabled:True
 /guard status
 /permissions
 ```
+
+Approve trusted bots before or after invite: `/guard approvebot bot:@TrustedBot`. Unverified bots are kicked on join while bot-guard is on.
 
 Commands may show their options in an order chosen by Discord.
 
@@ -133,11 +140,11 @@ credentials into GitHub issues, commits or chat logs.
 Custom chat commands require no leading `/` or prefix. By default, shortcut commands work in **all guild channels** where permissions allow them. Optionally restrict them to a staff channel:
 
 1. Optional: `/shortcut channel channel:#staff-commands` (or `/shortcut anywhere` to allow all channels)
-2. `/shortcut set word:اص action:timeout`
-3. Reply to a member's message with `اص 10` (10-minute timeout) or send `اص @member 10`.
+2. `/shortcut set word:اص action:mute` (text mute — not Timeout). For Discord Timeout use action `timeout`.
+3. Reply to a member's message with `اص 10` (10-minute text mute) or send `اص @member 10`.
 4. See mappings using `/shortcut list`, remove with `/shortcut remove`, and suspend all with `/shortcut disable`.
 
-Available actions: `timeout`, `untimeout`, `kick`, `ban`, `purge`, `antispam_on/off`, `links_on/off`, `raid_on/off`.
+Available actions: `mute`, `unmute`, `timeout`, `untimeout`, `vmute`, `vunmute`, `kick`, `ban`, `purge`, `antispam_on/off`, `links_on/off`, `raid_on/off`.
 A `purge` shortcut uses a number of messages as its argument; guard toggles take no arguments.
 Staff and bot Discord permissions, target hierarchy, channel scoping, rate limiting, and exact first-word matching are checked on each command. Configured shortcuts work in all guild channels by default, unless you select a restriction or explicitly disable them. Enable Message Content Intent in Developer Portal. SQLite migrations preserve existing guard settings, with new language and shortcuts tables.
 

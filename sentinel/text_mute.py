@@ -28,6 +28,7 @@ DENIED = (
     "send_messages_in_threads",
     "create_public_threads",
     "create_private_threads",
+    "send_voice_messages",
 )
 
 
@@ -71,7 +72,10 @@ class TextMute(commands.Cog):
         )
         self.db.commit()
         self.releasing: set[tuple[int, int]] = set()
-        self.expire_mutes.start()
+
+    async def cog_load(self):
+        if not self.expire_mutes.is_running():
+            self.expire_mutes.start()
 
     def cog_unload(self):
         self.expire_mutes.cancel()
@@ -217,6 +221,19 @@ class TextMute(commands.Cog):
                 "البوت محتاج Manage Roles في كل القنوات النصية.",
             )
 
+    def is_text_muted(self, guild_id: int, member_id: int) -> bool:
+        now = int(datetime.now(timezone.utc).timestamp())
+        return self.db.execute(
+            "SELECT 1 FROM text_mutes WHERE guild_id=? AND member_id=? AND expires_at > ?",
+            (guild_id, member_id, now),
+        ).fetchone() is not None
+
+    @staticmethod
+    def actor_can_mute(actor: discord.Member) -> bool:
+        # Timeout-capable mods can also text-mute; bot still needs Manage Roles.
+        rights = actor.guild_permissions
+        return rights.manage_roles or rights.moderate_members
+
     async def validate(self, guild, actor, target, me, *, role=None):
         reason = target_error(actor, target, me, language=lang(self.bot.store, guild.id))
         if reason:
@@ -226,8 +243,11 @@ class TextMute(commands.Cog):
                 "Administrators bypass text-channel restrictions; I can't text-mute this member.",
                 "عضو Administrator بيتجاوز منع الكتابة؛ مينفعش أعمله Text Mute بالرول.",
             )
-        if not actor.guild_permissions.manage_roles:
-            raise TextMuteError("You need Manage Roles.", "محتاج صلاحية Manage Roles.")
+        if not self.actor_can_mute(actor):
+            raise TextMuteError(
+                "You need Manage Roles or Moderate Members (Timeout).",
+                "محتاج صلاحية Manage Roles أو Moderate Members (Timeout).",
+            )
         if not me.guild_permissions.manage_roles:
             raise TextMuteError("The bot needs Manage Roles.", "البوت محتاج صلاحية Manage Roles.")
         if role is not None:
@@ -299,10 +319,9 @@ class TextMute(commands.Cog):
         finally:
             self.releasing.discard((guild.id, member.id))
 
-    @app_commands.command(name="mute", description="Prevent writing only (role-based), no Timeout or voice mute")
+    @app_commands.command(name="mute", description="Block chat writing only (not Discord Timeout, not voice mute)")
     @app_commands.guild_only()
-    @app_commands.default_permissions(manage_roles=True)
-    @app_commands.checks.has_permissions(manage_roles=True)
+    @app_commands.default_permissions(moderate_members=True)
     @app_commands.checks.bot_has_permissions(manage_roles=True)
     @app_commands.describe(minutes="Minutes until the writing restriction is removed")
     async def mute(self, interaction: discord.Interaction, member: discord.Member,
@@ -320,10 +339,9 @@ class TextMute(commands.Cog):
         await log_action(interaction.guild, self.bot.store, "Text-only mute",
                          f"Member {member.id} | Moderator {interaction.user.id} | Minutes {minutes}")
 
-    @app_commands.command(name="unmute", description="Allow a member to write again (remove text mute role)")
+    @app_commands.command(name="unmute", description="Allow a member to write again (remove text mute)")
     @app_commands.guild_only()
-    @app_commands.default_permissions(manage_roles=True)
-    @app_commands.checks.has_permissions(manage_roles=True)
+    @app_commands.default_permissions(moderate_members=True)
     @app_commands.checks.bot_has_permissions(manage_roles=True)
     async def unmute(self, interaction: discord.Interaction, member: discord.Member,
                      reason: str = "No reason"):
@@ -338,6 +356,23 @@ class TextMute(commands.Cog):
         await reply(interaction, ar if lang(self.bot.store, interaction.guild_id) == "ar" else en)
         await log_action(interaction.guild, self.bot.store, "Text-only unmute",
                          f"Member {member.id} | Moderator {interaction.user.id}")
+
+    @commands.Cog.listener()
+    async def on_message(self, message: discord.Message):
+        """Safety net: delete chat from text-muted members even if an overwrite was missed."""
+        if not message.guild or message.author.bot or not isinstance(message.author, discord.Member):
+            return
+        if (message.guild.id, message.author.id) in self.releasing:
+            return
+        if not self.is_text_muted(message.guild.id, message.author.id):
+            return
+        me = message.guild.me
+        if me is None or not message.channel.permissions_for(me).manage_messages:
+            return
+        try:
+            await message.delete()
+        except (discord.Forbidden, discord.HTTPException):
+            logger.exception("Failed to delete muted member message in %s", message.channel.id)
 
     @commands.Cog.listener()
     async def on_guild_channel_create(self, channel):

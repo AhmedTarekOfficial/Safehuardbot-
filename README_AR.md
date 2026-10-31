@@ -63,9 +63,13 @@ source .venv/bin/activate
 | `/purge` | حذف 1–100 رسالة |
 | `/permissions` | فتح Panel عرض الصلاحيات والبحث |
 | `/guard logs` | تحديد قناة الـ Logs |
-| `/guard antispam` | تفعيل/تعطيل مقاومة Spam |
-| `/guard links` | تفعيل/تعطيل حذف روابط دعوات Discord |
+| `/guard antispam` | تفعيل/تعطيل مقاومة Spam (أعضاء + بوتات تانية) |
+| `/guard links` | تفعيل/تعطيل فلتر الدعوات وسبام الروابط |
 | `/guard raid` | تفعيل/تعطيل تنبيهات دخول الأعضاء بسرعة |
+| `/guard botguard` | طرد/تقييد البوتات الجديدة لحد موافقة الإدارة |
+| `/guard approvebot` | إضافة بوت لقائمة المسموح لهم |
+| `/guard revokebot` | إزالة بوت من قائمة الموافقة |
+| `/guard botlist` | عرض البوتات الموافق عليها |
 | `/guard status` | عرض إعدادات الحماية |
 | `/guard clearlogs` | إلغاء قناة Logs |
 
@@ -78,15 +82,17 @@ source .venv/bin/activate
 /guard antispam enabled:True
 /guard links enabled:True
 /guard raid enabled:True
+/guard botguard enabled:True
 ```
 
-التلات خصائص بيكونوا **OFF افتراضيًا**. إعداداتهم بتتحفظ حتى بعد Restart.
+خصائص الحماية بتكون **OFF افتراضيًا**. إعداداتهم بتتحفظ حتى بعد Restart.
 
 ### تفاصيل الحماية
 
-- **Anti-spam:** لو العضو أرسل 7 رسائل في 8 ثوانٍ، أو كرر نفس الرسالة 4 مرات في 12 ثانية، أو عمل Mention لـ 8 أعضاء في رسالة، البوت يحاول يحذف الرسالة ويعمل Timeout لمدة 10 دقايق. أصحاب صلاحية Manage Messages في نفس القناة مستثنين.
-- **Invite filter:** حذف رسائل روابط دعوات Discord، مش كل الروابط.
+- **Anti-spam:** لو العضو أرسل 7 رسائل في 8 ثوانٍ، أو كرر نفس الرسالة 4 مرات في 12 ثانية، أو عمل Mention لـ 8 أعضاء، البوت يحذف الرسالة ويعمل Timeout 10 دقايق. **البوتات التانية** لو عملت flood بتتطرد. أصحاب Manage Messages مستثنين (البوتات التانية مش مستثناة حتى لو Admin).
+- **Link filter:** حذف دعوات Discord من الأعضاء والبوتات، حذف روابط البوتات المشبوهة، ومعاقبة سبام الروابط المتكرر.
 - **Raid detection:** لو 8 أعضاء دخلوا في 20 ثانية، يبعت تنبيه في قناة Logs؛ **مش هيعمل Ban أو Kick تلقائيًا**.
+- **Bot guard:** أي بوت جديد مش في قائمة الموافقة بيتطرد (أو يتقفل لو الطرد فشل). حتى لو معاه Administrator، الطرد هو الحل لأن Admin بيتجاوز قيود القنوات. بعد الموافقة بـ `/guard approvebot` تقدر تعيد دعوته.
 
 ## 5) Permissions Panel
 
@@ -150,13 +156,13 @@ GitHub Actions بيشغّل Compile وTests على Python 3.12 مع كل Push أ
 الاختصارات اللي بتسجلها بتشتغل افتراضيًا في كل القنوات اللي البوت عنده فيها صلاحيات. تحديد قناة للإدارة اختياري:
 1. لو عايز تقييد إضافي، اعمل قناة للإدارة مثل #staff-commands وخلي الوصول ليها للمشرفين فقط.
 2. اختياري: نفذ `/shortcut channel channel:#staff-commands` للتقييد، أو `/shortcut anywhere` للسماح بكل القنوات.
-3. نفذ `/shortcut set word:اص action:timeout` لإنشاء الاختصار.
-4. اعمل Reply على رسالة عضو واكتب `اص 10` لعمل Timeout عشر دقائق.
+3. نفذ `/shortcut set word:اص action:mute` لإنشاء اختصار **منع الكتابة** (مش Timeout). لو عايز Discord Timeout استخدم `action:timeout`.
+4. اعمل Reply على رسالة عضو واكتب `اص 10` لمنع الكتابة عشر دقائق.
 5. أو اكتب `اص @member 10` (باستخدام Mention فعلي من Discord).
 6. نفذ `/shortcut list` لمراجعة الاختصارات و`/shortcut remove word:اص` للحذف.
 7. `/shortcut disable` لإيقاف اختصارات الرسائل مع الاحتفاظ بأسمائها.
 
-الأوامر المتاحة للاختصارات: `timeout`, `untimeout`, `kick`, `ban`, `purge`, `antispam_on`, `antispam_off`, `links_on`, `links_off`, `raid_on`, `raid_off`.
+الأوامر المتاحة للاختصارات: `mute`, `unmute`, `timeout`, `untimeout`, `vmute`, `vunmute`, `kick`, `ban`, `purge`, `antispam_on`, `antispam_off`, `links_on`, `links_off`, `raid_on`, `raid_off`, `botguard_on`, `botguard_off`.
 
 مثال مسح: اربط `مسح` بـ `purge`، واكتب `مسح 5` في قناة الإدارة.
 

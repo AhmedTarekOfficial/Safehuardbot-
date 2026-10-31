@@ -33,6 +33,7 @@ class GuildSettings:
     antispam: bool = False
     links: bool = False
     raid: bool = False
+    bot_guard: bool = False
     log_channel_id: int | None = None
     language: str = "en"
     shortcut_channel_id: int | None = None
@@ -61,19 +62,30 @@ class SettingsStore:
             self.connection.execute("ALTER TABLE guild_settings ADD COLUMN shortcut_channel_id INTEGER")
         if "shortcuts_enabled" not in columns:
             self.connection.execute("ALTER TABLE guild_settings ADD COLUMN shortcuts_enabled INTEGER NOT NULL DEFAULT 1")
+        if "bot_guard" not in columns:
+            self.connection.execute("ALTER TABLE guild_settings ADD COLUMN bot_guard INTEGER NOT NULL DEFAULT 0")
         self.connection.execute("""CREATE TABLE IF NOT EXISTS guild_shortcuts (
             guild_id INTEGER NOT NULL,
             word TEXT NOT NULL,
             action TEXT NOT NULL,
             PRIMARY KEY (guild_id, word)
         )""")
+        self.connection.execute("""CREATE TABLE IF NOT EXISTS approved_bots (
+            guild_id INTEGER NOT NULL,
+            bot_id INTEGER NOT NULL,
+            approved_by INTEGER,
+            approved_at INTEGER NOT NULL,
+            PRIMARY KEY (guild_id, bot_id)
+        )""")
         self.connection.commit()
         self.cache: dict[int, GuildSettings] = {}
-        for guild_id, antispam, links, raid, log_channel_id, language, shortcut_channel_id, shortcuts_enabled in self.connection.execute(
-            "SELECT guild_id, antispam, links, raid, log_channel_id, language, shortcut_channel_id, shortcuts_enabled FROM guild_settings"
+        for row in self.connection.execute(
+            "SELECT guild_id, antispam, links, raid, bot_guard, log_channel_id, language, "
+            "shortcut_channel_id, shortcuts_enabled FROM guild_settings"
         ):
+            guild_id, antispam, links, raid, bot_guard, log_channel_id, language, shortcut_channel_id, shortcuts_enabled = row
             self.cache[guild_id] = GuildSettings(
-                bool(antispam), bool(links), bool(raid), log_channel_id,
+                bool(antispam), bool(links), bool(raid), bool(bot_guard), log_channel_id,
                 language if language in ("en", "ar") else "en", shortcut_channel_id,
                 bool(shortcuts_enabled)
             )
@@ -83,7 +95,10 @@ class SettingsStore:
 
     def update(self, guild_id: int, **changes) -> GuildSettings:
         before = self.get(guild_id)
-        fields = {"antispam", "links", "raid", "log_channel_id", "language", "shortcut_channel_id", "shortcuts_enabled"}
+        fields = {
+            "antispam", "links", "raid", "bot_guard", "log_channel_id",
+            "language", "shortcut_channel_id", "shortcuts_enabled",
+        }
         if not changes.keys() <= fields:
             raise ValueError("Invalid settings field")
         if "language" in changes and changes["language"] not in ("en", "ar"):
@@ -93,18 +108,20 @@ class SettingsStore:
         updated = GuildSettings(**data)
         self.connection.execute(
             """INSERT INTO guild_settings
-               (guild_id, antispam, links, raid, log_channel_id, language, shortcut_channel_id, shortcuts_enabled)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+               (guild_id, antispam, links, raid, bot_guard, log_channel_id, language,
+                shortcut_channel_id, shortcuts_enabled)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
                ON CONFLICT(guild_id) DO UPDATE SET
                    antispam=excluded.antispam,
                    links=excluded.links,
                    raid=excluded.raid,
+                   bot_guard=excluded.bot_guard,
                    log_channel_id=excluded.log_channel_id,
                    language=excluded.language,
                    shortcut_channel_id=excluded.shortcut_channel_id,
                    shortcuts_enabled=excluded.shortcuts_enabled""",
             (guild_id, int(updated.antispam), int(updated.links),
-             int(updated.raid), updated.log_channel_id, updated.language,
+             int(updated.raid), int(updated.bot_guard), updated.log_channel_id, updated.language,
              updated.shortcut_channel_id, int(updated.shortcuts_enabled)),
         )
         self.connection.commit()
@@ -132,6 +149,38 @@ class SettingsStore:
         )
         self.connection.commit()
         return cursor.rowcount > 0
+
+    def is_bot_approved(self, guild_id: int, bot_id: int) -> bool:
+        return self.connection.execute(
+            "SELECT 1 FROM approved_bots WHERE guild_id=? AND bot_id=?",
+            (guild_id, bot_id),
+        ).fetchone() is not None
+
+    def approve_bot(self, guild_id: int, bot_id: int, approved_by: int | None = None) -> None:
+        from time import time
+        self.connection.execute(
+            """INSERT INTO approved_bots(guild_id, bot_id, approved_by, approved_at)
+               VALUES (?, ?, ?, ?)
+               ON CONFLICT(guild_id, bot_id) DO UPDATE SET
+                   approved_by=excluded.approved_by,
+                   approved_at=excluded.approved_at""",
+            (guild_id, bot_id, approved_by, int(time())),
+        )
+        self.connection.commit()
+
+    def revoke_bot(self, guild_id: int, bot_id: int) -> bool:
+        cursor = self.connection.execute(
+            "DELETE FROM approved_bots WHERE guild_id=? AND bot_id=?",
+            (guild_id, bot_id),
+        )
+        self.connection.commit()
+        return cursor.rowcount > 0
+
+    def approved_bots(self, guild_id: int) -> list[int]:
+        return [row[0] for row in self.connection.execute(
+            "SELECT bot_id FROM approved_bots WHERE guild_id=? ORDER BY approved_at DESC",
+            (guild_id,),
+        )]
 
     def close(self):
         self.connection.close()

@@ -9,6 +9,8 @@ class LocalizationAndShortcutsTests(unittest.TestCase):
         self.assertIn("مركز التحكم", tr("ar", "home"))
         self.assertIn("CONTROL CENTER", tr("en", "home"))
         self.assertIn("اص", tr("ar", "shortcuts_text"))
+        self.assertIn("mute", tr("en", "shortcuts_text"))
+        self.assertIn("`mute`", tr("ar", "shortcuts_text"))
 
     def test_arabic_and_latin_shortcut_words(self):
         self.assertEqual(normalized_word(" اص "), "اص")
@@ -19,8 +21,8 @@ class LocalizationAndShortcutsTests(unittest.TestCase):
                     normalized_word(invalid)
 
     def test_exact_no_prefix_dispatch(self):
-        aliases = {"اص": "timeout", "clear": "purge"}
-        self.assertEqual(parse_command("اص <@123> 10", aliases), ("اص", "timeout", "<@123> 10"))
+        aliases = {"اص": "mute", "clear": "purge"}
+        self.assertEqual(parse_command("اص <@123> 10", aliases), ("اص", "mute", "<@123> 10"))
         self.assertEqual(parse_command("CLEAR 5", aliases), ("clear", "purge", "5"))
         self.assertIsNone(parse_command("اصلي", aliases))
         self.assertIsNone(parse_command("/اص <@123>", aliases))

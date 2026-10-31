@@ -87,7 +87,9 @@ class ShortcutDispatchTests(unittest.IsolatedAsyncioTestCase):
     async def test_text_mute_shortcut_uses_role_service_not_timeout(self):
         self.store.set_shortcut(1, "اص", "mute")
         msg = self.message(content="اص <@!200> 7", channel_id=20)
-        msg.author.guild_permissions.manage_roles = True
+        # Timeout-capable staff can text-mute; bot still needs Manage Roles.
+        msg.author.guild_permissions.manage_roles = False
+        msg.author.guild_permissions.moderate_members = True
         msg.guild.me.guild_permissions.manage_roles = True
         member = Mock(spec=discord.Member)
         member.id = 200

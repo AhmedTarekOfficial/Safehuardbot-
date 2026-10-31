@@ -33,13 +33,13 @@ class HelpView(discord.ui.View):
         language = lang(self.bot.store, self.guild.id)
         content = tr(language, f"{self.section}_text") if self.section != "overview" else tr(language, "overview_text")
         current = self.bot.store.get(self.guild.id)
-        shield = sum([current.antispam, current.links, current.raid])
+        shield = sum([current.antispam, current.links, current.raid, current.bot_guard])
         embed = discord.Embed(
             title=tr(language, "home"),
             description=f"{tr(language, 'welcome')}\n\n━━━━━━━━━━━━━━━━━━━━\n{content}",
             color=discord.Color.from_rgb(68, 112, 238),
         )
-        embed.add_field(name="🛡️ Shield", value=f"`{shield}/3`", inline=True)
+        embed.add_field(name="🛡️ Shield", value=f"`{shield}/4`", inline=True)
         embed.add_field(name="🌐 UI", value="العربية" if language == "ar" else "English", inline=True)
         embed.add_field(name="⚡ Quick Actions", value=str(len(self.bot.store.shortcuts_for(self.guild.id))), inline=True)
         broadcast = self.bot.get_cog("Broadcast")

@@ -11,8 +11,8 @@ from sentinel.panel import PermissionsView
 class DashboardSmokeTests(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.guild = SimpleNamespace(id=10, name="Test Guild", icon=None, roles=[])
-        self.bot = SimpleNamespace(store=Mock())
-        self.bot.store.shortcuts_for.return_value = {"اص": "timeout"}
+        self.bot = SimpleNamespace(store=Mock(), get_cog=Mock(return_value=None))
+        self.bot.store.shortcuts_for.return_value = {"اص": "mute"}
 
     async def test_help_dashboard_english(self):
         self.bot.store.get.return_value = GuildSettings(language="en")

@@ -17,7 +17,7 @@ logger = logging.getLogger("sentinel.shortcuts")
 ALLOWED = (
     "timeout", "untimeout", "mute", "unmute", "vmute", "vunmute", "kick", "ban", "purge",
     "antispam_on", "antispam_off", "links_on", "links_off",
-    "raid_on", "raid_off",
+    "raid_on", "raid_off", "botguard_on", "botguard_off",
 )
 ACTION_CHOICES = [app_commands.Choice(name=name, value=name) for name in ALLOWED]
 WORD = re.compile(r"^[^\W_]{2,24}$", flags=re.UNICODE)
@@ -30,7 +30,18 @@ ACTION_PERMISSION = {
     "antispam_on": "manage_guild", "antispam_off": "manage_guild",
     "links_on": "manage_guild", "links_off": "manage_guild",
     "raid_on": "manage_guild", "raid_off": "manage_guild",
+    "botguard_on": "manage_guild", "botguard_off": "manage_guild",
 }
+
+
+def has_action_permission(action: str, perms, *, for_bot: bool = False) -> bool:
+    """Staff may text-mute with Manage Roles or Moderate Members; the bot needs Manage Roles."""
+    if action in ("mute", "unmute"):
+        if for_bot:
+            return bool(getattr(perms, "manage_roles", False))
+        return bool(getattr(perms, "manage_roles", False) or getattr(perms, "moderate_members", False))
+    required = ACTION_PERMISSION[action]
+    return bool(getattr(perms, required, False))
 
 
 def normalized_word(value: str) -> str:
@@ -231,10 +242,9 @@ class Shortcuts(commands.GroupCog, group_name="shortcut", group_description="Con
         word, action, args = parsed
         language = config.language
         actor = message.author
-        required = ACTION_PERMISSION[action]
         voice_action = action in ("vmute", "vunmute")
         actor_perms = message.channel.permissions_for(actor) if action == "purge" else actor.guild_permissions
-        if not voice_action and not getattr(actor_perms, required, False):
+        if not voice_action and not has_action_permission(action, actor_perms):
             await message.reply(tr(language, "short_denied"), mention_author=False)
             return
         me = message.guild.me
@@ -245,7 +255,11 @@ class Shortcuts(commands.GroupCog, group_name="shortcut", group_description="Con
                 return
         bot_perms = message.channel.permissions_for(me) if action == "purge" else me.guild_permissions
         channel_perms = message.channel.permissions_for(me)
-        if not (channel_perms.view_channel and channel_perms.send_messages) or (not voice_action and not getattr(bot_perms, required, False)) or (action == "purge" and not channel_perms.read_message_history):
+        if (
+            not (channel_perms.view_channel and channel_perms.send_messages)
+            or (not voice_action and not has_action_permission(action, bot_perms, for_bot=True))
+            or (action == "purge" and not channel_perms.read_message_history)
+        ):
             logger.warning("Shortcut %s blocked: bot lacks permissions in guild %s channel %s",
                            action, message.guild.id, message.channel.id)
             return
@@ -256,10 +270,11 @@ class Shortcuts(commands.GroupCog, group_name="shortcut", group_description="Con
         if len(self.recent) > 3000:
             self.recent = {k: v for k, v in self.recent.items() if now-v < 120}
         try:
-            if action.startswith(("antispam_", "links_", "raid_")):
+            if action.startswith(("antispam_", "links_", "raid_", "botguard_")):
                 feature, enabled = action.rsplit("_", 1)
-                self.bot.store.update(message.guild.id, **{feature: enabled == "on"})
-                detail = f"{feature} = {enabled}"
+                field = "bot_guard" if feature == "botguard" else feature
+                self.bot.store.update(message.guild.id, **{field: enabled == "on"})
+                detail = f"{field} = {enabled}"
             elif action == "purge":
                 amount = integer_arg(args, 1, 100)
                 if amount is None:
